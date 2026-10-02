@@ -1,0 +1,22 @@
+// Neutral message contracts are inlined into published declarations.
+export type {
+    Role,
+    MessageContentText,
+    MessageContentImage,
+    MessageContentAudio,
+    MessageContentVideo,
+    FileData,
+    MessageContentFile,
+    MessageContentToolResult,
+    MessageContentCodeExecution,
+    MessageContentCitation,
+    MessageContentPart,
+    MessageContent,
+    ChatMessage,
+    Attachment,
+    AttachmentType,
+    ToolCall,
+    ToolDefinition,
+    ComputerUseAction,
+    MCPToolCall,
+} from '@itookit/llm-context';

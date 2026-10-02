@@ -1,0 +1,106 @@
+{
+  "name": "@itookit/driver-llm",
+  "version": "0.2.0",
+  "description": "Standalone model protocol client with streaming, cancellation and injectable transport",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./chain": {
+      "types": "./src/chain.ts",
+      "import": "./src/chain.ts",
+      "default": "./src/chain.ts"
+    },
+    "./contracts": {
+      "types": "./src/contracts.ts",
+      "import": "./src/contracts.ts",
+      "default": "./src/contracts.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/index.js"
+        },
+        "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/index.cjs"
+        }
+      },
+      "./chain": {
+        "import": {
+          "types": "./dist/chain.d.ts",
+          "default": "./dist/chain.js"
+        },
+        "require": {
+          "types": "./dist/chain.d.cts",
+          "default": "./dist/chain.cjs"
+        }
+      },
+      "./contracts": {
+        "import": {
+          "types": "./dist/contracts.d.ts",
+          "default": "./dist/contracts.js"
+        },
+        "require": {
+          "types": "./dist/contracts.d.cts",
+          "default": "./dist/contracts.cjs"
+        }
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "itookit",
+    "llm",
+    "driver",
+    "openai",
+    "anthropic",
+    "gemini",
+    "ai"
+  ],
+  "author": "lizlok@gmail.com",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mushuanli/itookit.git",
+    "directory": "packages/driver-llm"
+  },
+  "bugs": {
+    "url": "https://github.com/mushuanli/itookit/issues"
+  },
+  "homepage": "https://github.com/mushuanli/itookit/tree/main/packages/driver-llm#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1",
+    "@itookit/llm-context": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
