@@ -88,3 +88,5 @@ const client = new LLMDriver({
 - `LLMDeviceDriver`、`LLM_IOCTL`、默认 Agent、`.llm` 配置、费用、Skill 和 MCP 管理改从 `kernel-adapters/llm` 导入。
 - 构造客户端时显式提供模型与供应商配置，不依赖 MindOS 的默认连接、定价目录或 VFS 初始化。
 
+
+`@itookit/driver-llm/contracts` 也导出 `ILLMService`：以 connectionId 调用模型的服务端口。它只定义接口，连接仓储、默认连接和凭据管理由宿主实现；`LLMDriver` 是单客户端 API，不直接实现该命名连接服务。

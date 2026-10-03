@@ -7,3 +7,4 @@ export * from './response';
 
 export * from './logger';
 export * from './protocol';
+export type * from './service';
