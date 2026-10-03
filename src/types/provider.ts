@@ -1,3 +1,14 @@
+/** Runtime-neutral provider port; factories need no inheritance from a built-in client. */
+export interface LLMProviderInstance {
+    readonly name: string;
+    readonly capabilities: ProviderCapabilities;
+    create(params: ChatCompletionParams): Promise<ChatCompletionResponse>;
+    stream(params: ChatCompletionParams): AsyncIterable<import('./response').ChatCompletionChunk>;
+    dispose(): Promise<void>;
+}
+export type ProviderConstructor = new (config: LLMProviderConfig) => LLMProviderInstance;
+export type ProviderFactory = (config: LLMProviderConfig, defaults?: Record<string, import('./connection').LLMProvider>) => LLMProviderInstance;
+
 export interface LLMLogSink {
     debug(message: string, details?: unknown): void;
     info(message: string, details?: unknown): void;
@@ -19,6 +30,7 @@ import type { ApiProtocol } from './connection';
  * Provider 配置（传给 BaseProvider）
  */
 export interface LLMProviderConfig {
+    logger?: LLMLogSink;
     fetch?: typeof globalThis.fetch;
     /** Provider key */
     provider: string;
@@ -204,6 +216,9 @@ export interface LLMHooks {
  * LLMDriver 构造配置
  */
 export interface LLMClientConfig {
+    /** Instance factory, typically created by ProviderRegistry.snapshot(). */
+    providerFactory?: ProviderFactory;
+    responses?: LLMProviderConfig['responses'];
     protocol?: ApiProtocol;
     fetch?: typeof globalThis.fetch;
     logger?: LLMLogSink;

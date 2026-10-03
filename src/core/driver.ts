@@ -7,7 +7,7 @@ import {
     ChatCompletionResponse,
     ChatCompletionChunk
 } from '../types';
-import { BaseProvider } from '../providers/base';
+import type { LLMProviderInstance } from '../types';
 import { createProvider } from '../providers/registry';
 import { LLMError } from '../errors';
 import { RequestCancellation } from './request-cancellation';
@@ -27,13 +27,15 @@ import { noopLog } from '../utils/logger';
  */
 export class LLMDriver {
     private readonly log: import('../types/provider').LLMLogSink;
-    private provider: BaseProvider;
+    private provider: LLMProviderInstance;
+    private readonly providerFactory: import('../types').ProviderFactory;
     private readonly providerConfig: LLMProviderConfig;
-    private readonly modelProviders = new Map<string, BaseProvider>();
+    private readonly modelProviders = new Map<string, LLMProviderInstance>();
     private config: Required<Pick<LLMClientConfig, 'maxRetries' | 'retryDelay' | 'timeout'>> & LLMClientConfig;
     
     constructor(config: LLMClientConfig) {
         this.log = config.logger ?? noopLog;
+        this.providerFactory = config.providerFactory ?? createProvider;
         // 1. 解析配置（优先使用 connection 对象）
         const provider = config.connection?.providerId || config.provider;
         const apiKey = config.connection?.apiKey || config.apiKey;
@@ -56,11 +58,13 @@ export class LLMDriver {
             model,
             protocol: config.connection?.protocol ?? config.protocol,
             supportsThinking: config.supportsThinking,
+            responses: config.responses,
             requiresReferer: config.requiresReferer,
             headers: config.headers,
             metadata: config.connection?.metadata,
             hooks: config.hooks,
             fetch: config.fetch,
+            logger: this.log,
             codex: config.codex,
         };
         
@@ -74,7 +78,7 @@ export class LLMDriver {
         
         // 5. 创建 Provider
         this.providerConfig = providerConfig;
-        this.provider = createProvider(providerConfig, config.customProviderDefaults);
+        this.provider = this.providerFactory(providerConfig, config.customProviderDefaults);
         
         // ✅ 简洁调用
         this.log.debug('LLMDriver initialized', {
@@ -117,17 +121,17 @@ export class LLMDriver {
     /**
      * 推断当前 provider 的格式标识，用于 attachment 展开
      */
-    private providerFormat(provider: BaseProvider): 'openai' | 'anthropic' | 'gemini' {
+    private providerFormat(provider: LLMProviderInstance): 'openai' | 'anthropic' | 'gemini' {
         if (provider.name.includes('anthropic')) return 'anthropic';
         if (provider.name.includes('gemini')) return 'gemini';
         return 'openai';
     }
 
-    private providerForModel(model?: string): BaseProvider {
+    private providerForModel(model?: string): LLMProviderInstance {
         if (!model || model === this.providerConfig.model || this.providerConfig.provider === 'codex') return this.provider;
         let provider = this.modelProviders.get(model);
         if (!provider) {
-            provider = createProvider({ ...this.providerConfig, model }, this.config.customProviderDefaults);
+            provider = this.providerFactory({ ...this.providerConfig, model }, this.config.customProviderDefaults);
             this.modelProviders.set(model, provider);
         }
         return provider;
@@ -286,7 +290,7 @@ export class LLMDriver {
     // ============== 流式包装 ==============
     
     private async *wrapStreamWithTimeout(
-        stream: AsyncGenerator<ChatCompletionChunk>,
+        stream: AsyncIterable<ChatCompletionChunk>,
         cancellation: RequestCancellation,
         requestId: string
     ): AsyncGenerator<ChatCompletionChunk> {

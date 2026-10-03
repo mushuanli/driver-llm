@@ -13,3 +13,5 @@
 验证：`pnpm --filter @itookit/driver-llm test`、`typecheck`、`build`。
 
 模型选择归调用方：连接测试不得猜测模型；Codex 未指定模型时让宿主使用其配置，不内置命名模型默认值。
+
+Provider 扩展通过 createProviderRegistry().snapshot() 或 ProviderFactory 实例注入；没有全局可变注册表。工厂返回结构化 LLMProviderInstance，无需继承内置类。厂商 thinking 默认由 responses 配置或宿主目录指定。

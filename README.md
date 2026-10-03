@@ -92,3 +92,18 @@ const client = new LLMDriver({
 `@itookit/driver-llm/contracts` 也导出 `ILLMService`：以 connectionId 调用模型的服务端口。它只定义接口，连接仓储、默认连接和凭据管理由宿主实现；`LLMDriver` 是单客户端 API，不直接实现该命名连接服务。
 
 模型选择：testLLMConnection 必须提供 model，或通过 providerDefinition.models 注入测试目录；缺失时返回 Model is required，不猜测厂商模型。Codex 优先使用请求 model，再使用客户端配置 model；两者缺失时不发送模型覆盖，由 Codex 宿主选择，响应不伪造已选模型名称。
+
+## Provider 扩展与迁移
+
+```ts
+import { LLMDriver, createProviderRegistry } from '@itookit/driver-llm';
+
+const registry = createProviderRegistry({ custom: YourProvider });
+const client = new LLMDriver({ provider: 'custom', apiKey: 'key',
+  providerFactory: registry.snapshot(),
+});
+```
+
+每个注册表独立，snapshot 固定后续模型切换使用的实现。旧全局 registerProvider/getProvider/getRegisteredProviders/isProviderRegistered 已删除；对应操作使用实例 register/get/names。也可以直接注入 ProviderFactory，其返回值只需实现 LLMProviderInstance，不要求继承 BaseProvider。
+
+厂商服务端默认思考行为通过 `responses: { defaultThinkingEnabled: true }` 或 customProviderDefaults 显式指定；通信模块不再内置 DeepSeek thinking 默认。MindOS 可选目录保留该厂商配置。

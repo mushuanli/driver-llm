@@ -1,5 +1,8 @@
 // @file: driver-llm/providers/base.ts
 
+import { noopLog } from '../utils/logger';
+import type { LLMLogSink } from '../types/provider';
+
 import {
     LLMProviderConfig,
     ChatCompletionParams,
@@ -27,12 +30,14 @@ export abstract class BaseProvider {
     abstract readonly capabilities: ProviderCapabilities;
 
     protected config: LLMProviderConfig;
+    protected readonly log: LLMLogSink;
     protected baseURL: string;
     protected defaultModel: string;
     protected hooks?: LLMHooks;
 
     constructor(config: LLMProviderConfig) {
         this.config = config;
+        this.log = config.logger ?? noopLog;
         this.baseURL = this.resolveBaseURL(config);
         this.defaultModel = config.model || '';
         this.hooks = config.hooks;
@@ -210,7 +215,7 @@ export abstract class BaseProvider {
             }
             let requestBody: any;
             try { requestBody = JSON.parse(options.body as string); } catch { requestBody = options.body; }
-            console.error('[LLM] HTTP error (non-stream)', {
+            this.log.error('[LLM] HTTP error (non-stream)', {
                 provider: this.name,
                 url,
                 status: response.status,
@@ -247,7 +252,7 @@ export abstract class BaseProvider {
             }
             let requestBody: any;
             try { requestBody = JSON.parse(options.body as string); } catch { requestBody = options.body; }
-            console.error('[LLM] HTTP error (stream)', {
+            this.log.error('[LLM] HTTP error (stream)', {
                 provider: this.name,
                 url,
                 status: response.status,

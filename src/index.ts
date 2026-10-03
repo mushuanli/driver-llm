@@ -86,7 +86,7 @@ export { CodexProvider } from './providers/codex';
 export { AsyncEventHub, rejectPending } from './runtime/async-event-hub';
 export { JsonRpcLineTransport } from './runtime/json-rpc-transport';
 
-export { registerProvider, getProvider, createProvider, getRegisteredProviders, isProviderRegistered, resolveProtocol } from './providers/registry';
+export { createProviderRegistry, type ProviderRegistry, createProvider, resolveProtocol } from './providers/registry';
 
 // 工具函数
 // ============================================

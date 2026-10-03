@@ -170,6 +170,7 @@ describe('DeepSeek API mode (Responses API)', () => {
     });
 
     const deepseekDriver = (metadata?: Record<string, unknown>) => new LLMDriver({
+        responses: { defaultThinkingEnabled: true },
         connection: { providerId: 'deepseek', protocol: 'openai-responses', metadata },
         apiKey: 'sk-test',
         model: 'deepseek-v4-flash',
