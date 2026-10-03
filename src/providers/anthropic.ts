@@ -1,3 +1,4 @@
+import { decodeWireObject, parseWireEvent } from '../utils/wire-decoder';
 // @file: driver-llm/providers/anthropic.ts
 
 import { BaseProvider } from './base';
@@ -62,14 +63,14 @@ export class AnthropicProvider extends BaseProvider {
         const url = this.resolveMessagesUrl();
         const body = this.buildRequestBody(processedParams);
 
-        const response = await this.fetchJSON<any>(url, {
+        const response = await this.fetchJSON<unknown>(url, {
             method: 'POST',
             headers: this.buildHeaders(processedParams),
             body: JSON.stringify(body),
             signal: params.signal
         });
 
-        return this.normalizeResponse(response);
+        return this.normalizeResponse(decodeWireObject(response, 'content'));
     }
 
     async *stream(params: ChatCompletionParams): AsyncGenerator<ChatCompletionChunk> {
@@ -91,7 +92,7 @@ export class AnthropicProvider extends BaseProvider {
 
         for await (const data of parseSSEStream(stream)) {
             try {
-                const event = JSON.parse(data);
+                const event = parseWireEvent(data);
                 const chunk = this.normalizeStreamEvent(event, currentThinking, currentContent);
 
                 if (chunk) {

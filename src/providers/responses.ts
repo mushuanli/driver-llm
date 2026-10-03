@@ -1,3 +1,4 @@
+import { decodeWireObject, parseWireEvent } from '../utils/wire-decoder';
 // @file: driver-llm/providers/responses.ts
 
 import { BaseProvider } from './base';
@@ -83,14 +84,14 @@ export class ResponsesProvider extends BaseProvider {
         const url = this.resolveResponsesUrl();
         const body = this.buildResponsesBody(params);
 
-        const response = await this.fetchJSON<any>(url, {
+        const response = await this.fetchJSON<unknown>(url, {
             method: 'POST',
             headers: this.buildHeaders(),
             body: JSON.stringify(body),
             signal: params.signal,
         });
 
-        return this.normalizeResponse(response);
+        return this.normalizeResponse(decodeWireObject(response, 'output'));
     }
 
     async *stream(params: ChatCompletionParams): AsyncGenerator<ChatCompletionChunk> {
@@ -425,7 +426,7 @@ export class ResponsesProvider extends BaseProvider {
 
     private safeJson(data: string): any | undefined {
         try {
-            return JSON.parse(data);
+            return parseWireEvent(data);
         } catch {
             return undefined;
         }

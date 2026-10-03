@@ -1,3 +1,4 @@
+import { decodeWireObject, parseWireEvent } from '../utils/wire-decoder';
 // @file: driver-llm/providers/openai.ts
 
 import { BaseProvider } from './base';
@@ -89,14 +90,14 @@ export class OpenAIProvider extends BaseProvider {
         const url = this.resolveCompletionsUrl();
         const body = this.buildRequestBody(processedParams);
 
-        const response = await this.fetchJSON<any>(url, {
+        const response = await this.fetchJSON<unknown>(url, {
             method: 'POST',
             headers: this.buildHeaders(),
             body: JSON.stringify(body),
             signal: params.signal
         });
 
-        return this.normalizeResponse(response);
+        return this.normalizeResponse(decodeWireObject(response, 'choices'));
     }
     
     /**
@@ -123,7 +124,7 @@ export class OpenAIProvider extends BaseProvider {
             if (data === '[DONE]') break;
 
             try {
-                const chunk = JSON.parse(data);
+                const chunk = parseWireEvent(data);
                 yield this.normalizeChunk(chunk);
             } catch {
                 // 忽略解析错误

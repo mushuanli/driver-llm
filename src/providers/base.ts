@@ -1,3 +1,4 @@
+import { decodeWireObject } from '../utils/wire-decoder';
 // @file: driver-llm/providers/base.ts
 
 import { noopLog } from '../utils/logger';
@@ -227,7 +228,7 @@ export abstract class BaseProvider {
             throw LLMError.fromResponse(this.name, response.status, body);
         }
 
-        return response.json();
+        return decodeWireObject(await response.json() as unknown) as T;
     }
 
     /**

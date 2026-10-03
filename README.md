@@ -107,3 +107,5 @@ const client = new LLMDriver({ provider: 'custom', apiKey: 'key',
 每个注册表独立，snapshot 固定后续模型切换使用的实现。旧全局 registerProvider/getProvider/getRegisteredProviders/isProviderRegistered 已删除；对应操作使用实例 register/get/names。也可以直接注入 ProviderFactory，其返回值只需实现 LLMProviderInstance，不要求继承 BaseProvider。
 
 厂商服务端默认思考行为通过 `responses: { defaultThinkingEnabled: true }` 或 customProviderDefaults 显式指定；通信模块不再内置 DeepSeek thinking 默认。MindOS 可选目录保留该厂商配置。
+
+通信边界先校验成功 HTTP 响应与 SSE 对象结构，再执行各协议标准化；畸形 HTTP 结果明确失败，畸形 SSE 帧按既有行为跳过并继续读取后续事件。保留厂商扩展字段、Responses 文本 delta 和 OpenAI usage=null 兼容；新增校验不引入运行时依赖。

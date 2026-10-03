@@ -1,3 +1,4 @@
+import { decodeWireObject, parseWireEvent } from '../utils/wire-decoder';
 // @file: driver-llm/providers/gemini.ts
 
 import { BaseProvider } from './base';
@@ -67,14 +68,14 @@ export class GeminiProvider extends BaseProvider {
         const url = `${this.resolveModelsBase()}/${model}:generateContent?key=${this.config.apiKey}`;
         const body = this.buildRequestBody(processedParams);
 
-        const response = await this.fetchJSON<any>(url, {
+        const response = await this.fetchJSON<unknown>(url, {
             method: 'POST',
             headers: this.buildHeaders(),
             body: JSON.stringify(body),
             signal: params.signal
         });
 
-        return this.normalizeResponse(response, model);
+        return this.normalizeResponse(decodeWireObject(response, 'candidates'), model);
     }
 
     async *stream(params: ChatCompletionParams): AsyncGenerator<ChatCompletionChunk> {
@@ -94,7 +95,7 @@ export class GeminiProvider extends BaseProvider {
 
         for await (const data of parseSSEStream(stream)) {
             try {
-                const event = JSON.parse(data);
+                const event = parseWireEvent(data);
                 const chunk = this.normalizeChunk(event, model);
                 if (chunk) yield chunk;
             } catch {
