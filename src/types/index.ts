@@ -8,3 +8,5 @@ export * from './response';
 export * from './logger';
 export * from './protocol';
 export type * from './service';
+
+export type * from './events';
