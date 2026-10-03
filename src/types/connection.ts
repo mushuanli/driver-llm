@@ -1,4 +1,4 @@
-// Public communication configuration contracts; llm-common forwards these definitions.
+// Public communication configuration contracts; legacy common exports forward these definitions.
 
 /**
  * 模型用途分类。决定模型出现在哪些选择器、用哪个主图标。

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import type { LLMProvider } from '@itookit/llm-common';
+import type { LLMProvider } from '@itookit/driver-llm/contracts';
 import { listProviderModels } from '../src/providers/model-catalog';
 
 const base: LLMProvider = { id: 'custom', name: 'Custom', implementation: 'openai-compatible',

@@ -92,7 +92,9 @@
     "url": "https://github.com/mushuanli/itookit/issues"
   },
   "homepage": "https://github.com/mushuanli/itookit/tree/main/packages/driver-llm#readme",
-  "dependencies": {},
+  "dependencies": {
+    "@itookit/llm-context": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^20.19.25",
     "tsup": "^8.5.1",
