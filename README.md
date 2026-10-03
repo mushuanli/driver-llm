@@ -90,3 +90,5 @@ const client = new LLMDriver({
 
 
 `@itookit/driver-llm/contracts` 也导出 `ILLMService`：以 connectionId 调用模型的服务端口。它只定义接口，连接仓储、默认连接和凭据管理由宿主实现；`LLMDriver` 是单客户端 API，不直接实现该命名连接服务。
+
+模型选择：testLLMConnection 必须提供 model，或通过 providerDefinition.models 注入测试目录；缺失时返回 Model is required，不猜测厂商模型。Codex 优先使用请求 model，再使用客户端配置 model；两者缺失时不发送模型覆盖，由 Codex 宿主选择，响应不伪造已选模型名称。

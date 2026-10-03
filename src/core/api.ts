@@ -2,7 +2,6 @@
 
 import type { ConnectionTestResult, ProviderConnectionTestParams } from '../types';
 import { LLMDriver } from './driver';
-import { LLM_PROVIDERS } from '../defaults';
 import { LLMError } from '../errors';
 import { noopLog as log } from '../utils/logger';
 
@@ -26,9 +25,8 @@ export async function testLLMConnection(config: ProviderConnectionTestParams & {
     }
     
     // 2. 确定模型
-    const testModel = model || 
-        LLM_PROVIDERS[provider]?.models?.[0]?.id ||
-        'gpt-4o-mini';
+    const testModel = model || config.providerDefinition?.models?.[0]?.id;
+    if (!testModel) return { success: false, message: 'Model is required' };
     
     log.debug('Testing connection', { provider, model: testModel });
     

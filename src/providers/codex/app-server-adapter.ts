@@ -13,7 +13,6 @@ import type {
     ToolCall,
 } from '../../types';
 import {
-    CODEX_DEFAULT_MODEL,
     contentChunk,
     isNodeRuntime,
     messageText,
@@ -101,8 +100,8 @@ export class CodexAppServerAdapter {
         await transport.close?.();
     }
 
-    private resolveModel(params: ChatCompletionParams): string {
-        return params.model || this.config.model || CODEX_DEFAULT_MODEL;
+    private resolveModel(params: ChatCompletionParams): string | undefined {
+        return params.model || this.config.model || undefined;
     }
 
     private async getAppTransport(): Promise<CodexAppServerTransport> {
@@ -125,7 +124,7 @@ export class CodexAppServerAdapter {
     private async ensureThread(
         params: ChatCompletionParams,
         transport: CodexAppServerTransport,
-        model: string,
+        model: string | undefined,
     ): Promise<void> {
         const signature = JSON.stringify({
             model,
@@ -137,7 +136,7 @@ export class CodexAppServerAdapter {
             return;
         }
         const started = await transport.request<any>('thread/start', {
-            model,
+            ...(model ? { model } : {}),
             cwd: this.config.codex?.cwd ?? null,
             approvalPolicy: 'never',
             dynamicTools: this.dynamicTools(params),
@@ -154,7 +153,7 @@ export class CodexAppServerAdapter {
     private async startTurn(
         params: ChatCompletionParams,
         transport: CodexAppServerTransport,
-        model: string,
+        model: string | undefined,
     ): Promise<void> {
         const toolResult = this.pendingTool
             ? params.messages.find(message => message.role === 'tool' && message.tool_call_id === this.pendingTool?.callId)
@@ -172,7 +171,7 @@ export class CodexAppServerAdapter {
         const started = await transport.request<any>('turn/start', {
             threadId: this.threadId,
             input,
-            model,
+            ...(model ? { model } : {}),
             effort: params.reasoningEffort ?? this.config.metadata?.reasoningEffort ?? 'high',
             outputSchema: params.responseFormat?.type === 'json_schema'
                 ? params.responseFormat.json_schema.schema
@@ -187,7 +186,7 @@ export class CodexAppServerAdapter {
     /** Consume app-server events until the turn completes (or a tool call is requested). */
     private async *consumeAppEvents(
         events: AsyncIterable<CodexRPCMessage>,
-        model: string,
+        model: string | undefined,
     ): AsyncGenerator<ChatCompletionChunk> {
         for await (const event of events) {
             const p = event.params ?? {};

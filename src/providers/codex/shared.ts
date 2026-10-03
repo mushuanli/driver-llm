@@ -18,8 +18,6 @@ export type CodexEvent = {
     };
 };
 
-export const CODEX_DEFAULT_MODEL = 'gpt-5.6-sol';
-
 /** True when executing under Node (vs browser/Tauri), for lazy runtime imports. */
 export function isNodeRuntime(): boolean {
     return typeof process !== 'undefined' && Boolean(process.versions?.node);
@@ -61,7 +59,7 @@ export function validateCodexParams(
 /** Build a provider-neutral stream chunk. */
 export function contentChunk(
     id: string | undefined,
-    model: string,
+    model: string | undefined,
     content: string,
     finishReason: 'stop' | null,
 ): ChatCompletionChunk {

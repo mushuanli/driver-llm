@@ -12,7 +12,6 @@ import type {
     ToolCall,
 } from '../../types';
 import {
-    CODEX_DEFAULT_MODEL,
     contentChunk,
     isNodeRuntime,
     parsedContent,
@@ -71,8 +70,8 @@ export class CodexExecAdapter {
         }
     }
 
-    private resolveModel(params: ChatCompletionParams): string {
-        return params.model || this.config.model || CODEX_DEFAULT_MODEL;
+    private resolveModel(params: ChatCompletionParams): string | undefined {
+        return params.model || this.config.model || undefined;
     }
 
     private async getRunner(): Promise<CodexCommandRunner> {
@@ -91,7 +90,7 @@ export class CodexExecAdapter {
         return { signal: params.signal, cwd: this.config.codex?.cwd };
     }
 
-    private buildArgs(params: ChatCompletionParams, model: string): string[] {
+    private buildArgs(params: ChatCompletionParams, model: string | undefined): string[] {
         const effort =
             params.reasoningEffort ??
             (this.config.metadata?.reasoningEffort as string | undefined) ??
@@ -102,8 +101,7 @@ export class CodexExecAdapter {
             '--json',
             '--color',
             'never',
-            '-m',
-            model,
+            ...(model ? ['-m', model] : []),
             '-c',
             `model_reasoning_effort=${JSON.stringify(effort)}`,
             ...this.localImagePaths(params).flatMap(path => ['--image', path]),
@@ -152,7 +150,7 @@ export class CodexExecAdapter {
             .join('\n');
     }
 
-    private toResponse(events: CodexEvent[], model: string): ChatCompletionResponse {
+    private toResponse(events: CodexEvent[], model: string | undefined): ChatCompletionResponse {
         const id = events.find(event => event.type === 'thread.started')?.thread_id
             ?? `codex-${Date.now().toString(36)}`;
         const content = events

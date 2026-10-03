@@ -11,3 +11,5 @@
 - 所有导出、类型声明与 ESM/CJS 必须在仓库外 tarball 消费者中验证。
 
 验证：`pnpm --filter @itookit/driver-llm test`、`typecheck`、`build`。
+
+模型选择归调用方：连接测试不得猜测模型；Codex 未指定模型时让宿主使用其配置，不内置命名模型默认值。

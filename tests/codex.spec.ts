@@ -174,3 +174,24 @@ describe('AsyncEventHub / rejectPending', () => {
         expect(pending.size).toBe(0);
     });
 });
+
+it('leaves an omitted exec model to the Codex host', async () => {
+    const run = vi.fn(async () => ({ stdout: '{"type":"item.completed","item":{"type":"agent_message","text":"OK"}}\n' }));
+    const driver = new LLMDriver({ provider: 'codex', codex: { mode: 'exec', runner: { run } } });
+    try {
+        const response = await driver.chat.create({ messages: [{ role: 'user', content: 'Hi' }] });
+        expect(run.mock.calls[0][1]).not.toContain('-m');
+        expect(response.model).toBeUndefined();
+    } finally { await driver.dispose(); }
+});
+
+it('leaves an omitted app-server model to the Codex host', async () => {
+    const transport = mockTransport([[{ method: 'turn/completed', params: { threadId: 'thread-app', turn: { status: 'completed' } } }]]);
+    const driver = new LLMDriver({ provider: 'codex', codex: { transport } });
+    try {
+        await driver.chat.create({ messages: [{ role: 'user', content: 'Hi' }] });
+        for (const [method, params] of transport.request.mock.calls) {
+            if (['thread/start', 'turn/start'].includes(method)) expect(params).not.toHaveProperty('model');
+        }
+    } finally { await driver.dispose(); }
+});
