@@ -2,7 +2,7 @@
 
 独立的 TypeScript 模型通信客户端，支持 OpenAI Chat、Responses、Anthropic、Gemini 和可注入传输的 Codex。提供统一请求与响应、流式解析、多模态编码、超时和取消。
 
-发布产物没有运行时或 peer 依赖。ESM、CommonJS 与类型声明均可直接使用；消息声明在构建时内联，不需要安装其他 `@itookit/*` 包。
+发布产物没有运行时或 peer 依赖。ESM、CommonJS 与类型声明均可直接使用；通信消息类型由本包定义，源码与构建均不依赖其他 `@itookit/*` 包。
 
 ## 安装和调用
 
@@ -109,3 +109,9 @@ const client = new LLMDriver({ provider: 'custom', apiKey: 'key',
 厂商服务端默认思考行为通过 `responses: { defaultThinkingEnabled: true }` 或 customProviderDefaults 显式指定；通信模块不再内置 DeepSeek thinking 默认。MindOS 可选目录保留该厂商配置。
 
 通信边界先校验成功 HTTP 响应与 SSE 对象结构，再执行各协议标准化；畸形 HTTP 结果明确失败，畸形 SSE 帧按既有行为跳过并继续读取后续事件。保留厂商扩展字段、Responses 文本 delta 和 OpenAI usage=null 兼容；新增校验不引入运行时依赖。
+
+## 消息边界
+
+`ChatCompletionParams`、`ChatMessage`、`MessageContentPart` 和工具通信类型由驱动定义。调用方组装历史与上下文，再映射为这些请求类型；驱动不导入上下文引擎或会话模型。已有消息结构兼容时可直接传入，无需额外的运行时包装。
+
+普通消息、内容分段和工具 schema 可作为 JSON 数据传入。`signal` 和二进制 `attachments` 是可选的本地调用能力，JSON 序列化前必须移除或转换。网络、日志与重试函数通过客户端配置单独注入。

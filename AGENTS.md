@@ -3,7 +3,7 @@
 独立模型通信模块：Provider 协议、流式解析、超时、取消、多模态编码和可替换重试策略。
 
 - 发布产物零运行时依赖；不得依赖 common、ui-common、VFS、Session、Kernel 或 kernel-adapters/llm。
-- 消息契约在开发时 type import llm-context；构建必须内联这些声明，消费者不安装 llm-context。
+- 通信消息契约由本包定义；源码、测试和构建均不得依赖 llm-context 或相邻工作区源码。宿主负责把领域消息映射为通信 DTO。
 - 通信契约归本包，原 llm-common 和 common 的 LLM 兼容转发均已删除。`/contracts` 仅类型和纯协议函数，不加载客户端。
 - 配置、定价、默认 Agent、Skill、MCP 和 `/dev/llm` 管理归 kernel-adapters/llm。
 - 网络、日志和重试决策通过实例配置注入；不得使用全局宿主服务。

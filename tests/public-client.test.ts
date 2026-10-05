@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LLMDriver } from '../src/index';
+import type { ChatCompletionParams } from '../src/contracts';
 import { readTextSource } from '../src/utils/attachment';
 
 const completion = (content: string) => new Response(JSON.stringify({
@@ -7,6 +8,28 @@ const completion = (content: string) => new Response(JSON.stringify({
 }), { headers: { 'content-type': 'application/json' } });
 
 describe('public client capabilities', () => {
+    it('accepts JSON message and tool DTOs without context runtime objects', async () => {
+        const transport = vi.fn<typeof fetch>().mockResolvedValue(completion('done'));
+        const client = new LLMDriver({ provider: 'openai', apiKey: 'key', model: 'model', fetch: transport });
+        const request: ChatCompletionParams = {
+            messages: [
+                { role: 'user', content: [{ type: 'text', text: 'Read the file' }] },
+                { role: 'assistant', content: '', tool_calls: [
+                    { id: 'call-1', type: 'function', function: { name: 'read', arguments: '{"path":"a.txt"}' } },
+                ] },
+                { role: 'tool', tool_call_id: 'call-1', content: 'file contents' },
+            ],
+            tools: [{ type: 'function', function: { name: 'read', parameters: { type: 'object' } } }],
+        };
+        try {
+            const response = await client.chat.create(JSON.parse(JSON.stringify(request)) as ChatCompletionParams);
+            expect(response.choices[0].message.content).toBe('done');
+            const body = JSON.parse(String(transport.mock.calls[0][1]?.body));
+            expect(body.messages).toEqual(request.messages);
+            expect(body.tools).toEqual(request.tools);
+        } finally { await client.dispose(); }
+    });
+
     it('isolates transport and logging across clients', async () => {
         const firstFetch = vi.fn<typeof fetch>().mockResolvedValue(completion('first'));
         const secondFetch = vi.fn<typeof fetch>().mockResolvedValue(completion('second'));
