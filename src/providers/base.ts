@@ -87,6 +87,9 @@ export abstract class BaseProvider {
         }
 
         // 检查结构化输出
+        if (params.responseFormat?.type === 'json_object' && !this.supportsCapability('jsonMode')) {
+            throw LLMError.fromResponse(this.name, 400, { message: `Provider ${this.name} does not support JSON object mode; use a supported JSON schema or prompt` }, this.getModel(params));
+        }
         if (params.responseFormat?.type === 'json_schema' && !this.supportsCapability('structuredOutput')) {
             throw new Error(`Provider ${this.name} does not support structured output`);
         }

@@ -110,6 +110,10 @@ const client = new LLMDriver({ provider: 'custom', apiKey: 'key',
 
 通信边界先校验成功 HTTP 响应与 SSE 对象结构，再执行各协议标准化；畸形 HTTP 结果明确失败，畸形 SSE 帧按既有行为跳过并继续读取后续事件。保留厂商扩展字段、Responses 文本 delta 和 OpenAI usage=null 兼容；新增校验不引入运行时依赖。
 
+Anthropic Messages 的 `thinking: false` 显式发送 disabled；未指定时保留服务端默认，模型默认可通过 connection metadata.thinkingMode 注入，单次请求优先。开启手动思考时默认预算为输出上限的一半（最多 10000），显式预算必须至少 1024 且小于 maxTokens。JSON Schema 映射为 output_config.format；不支持通用 json_object 模式，请选择支持该模式的协议或由提示词约束并在宿主校验 JSON。
+
+Anthropic 用量包含普通输入、缓存读取和缓存创建 token；流式请求合并 message_start 与后续累计 usage，message_stop 不覆盖真实结束原因。SSE 服务端错误明确抛出 LLMError；Responses 的 incomplete 保留 length。
+
 ## 消息边界
 
 `ChatCompletionParams`、`ChatMessage`、`MessageContentPart` 和工具通信类型由驱动定义。调用方组装历史与上下文，再映射为这些请求类型；驱动不导入上下文引擎或会话模型。已有消息结构兼容时可直接传入，无需额外的运行时包装。

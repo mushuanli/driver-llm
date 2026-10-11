@@ -12,6 +12,7 @@ import {
     ToolDefinition
 } from '../types';
 import { parseSSEStream } from '../utils/stream';
+import { LLMError } from '../errors';
 
 /**
  * Anthropic Provider
@@ -33,7 +34,7 @@ export class AnthropicProvider extends BaseProvider {
         tools: true,
         parallelTools: true,
         structuredOutput: true,
-        jsonMode: true,
+        jsonMode: false,
         thinking: true,
         codeExecution: false,
         computerUse: true,  // Anthropic 特有
@@ -89,25 +90,36 @@ export class AnthropicProvider extends BaseProvider {
 
         let currentThinking = '';
         let currentContent = '';
+        const usage: Record<string, number> = {};
 
         for await (const data of parseSSEStream(stream)) {
-            try {
-                const event = parseWireEvent(data);
-                const chunk = this.normalizeStreamEvent(event, currentThinking, currentContent);
+            const event = this.decodeStreamEvent(data);
+            if (!event) continue;
+            Object.assign(usage, event.message?.usage ?? event.usage ?? {});
+            const chunk = this.normalizeStreamEvent(event, currentThinking, currentContent, usage);
 
-                if (chunk) {
-                    if (chunk.choices[0]?.delta.thinking) {
-                        currentThinking += chunk.choices[0].delta.thinking;
-                    }
-                    if (chunk.choices[0]?.delta.content) {
-                        currentContent += chunk.choices[0].delta.content;
-                    }
-                    yield chunk;
+            if (chunk) {
+                if (chunk.choices[0]?.delta.thinking) {
+                    currentThinking += chunk.choices[0].delta.thinking;
                 }
-            } catch {
-                // 忽略解析错误
+                if (chunk.choices[0]?.delta.content) {
+                    currentContent += chunk.choices[0].delta.content;
+                }
+                yield chunk;
             }
         }
+    }
+
+    private decodeStreamEvent(data: string): Record<string, any> | null {
+        let event: Record<string, any>;
+        try { event = parseWireEvent(data); }
+        catch { return null; }
+        if (event.type === 'error') {
+            const statuses: Record<string, number> = { overloaded_error: 529, rate_limit_error: 429,
+                authentication_error: 401, permission_error: 403, invalid_request_error: 400 };
+            throw LLMError.fromResponse(this.name, statuses[event.error?.type] ?? 500, event, this.defaultModel);
+        }
+        return event;
     }
 
     // ============== 请求构建 ==============
@@ -147,7 +159,7 @@ export class AnthropicProvider extends BaseProvider {
         const body: Record<string, any> = {
             model: this.getModel(params),
             messages: userMessages,
-            max_tokens: params.maxTokens || 4096
+            max_tokens: params.maxTokens ?? 4096
         };
 
         // System message (支持缓存)
@@ -171,17 +183,10 @@ export class AnthropicProvider extends BaseProvider {
         // 1. reasoningEffort → output_config.effort（需要 effort beta header，DeepSeek /anthropic 端点使用）
         // 2. thinking.budget_tokens → 精确控制 token 预算（标准 Anthropic API）
         // reasoningEffort 优先级高于 thinkingBudget。
-        if (params.thinking) {
-            if (params.reasoningEffort) {
-                body.output_config = { effort: params.reasoningEffort };
-                // effort beta header 在 buildHeaders() 中按需追加（见下方 buildHeaders 覆盖）
-            } else {
-                const budget = params.thinkingBudget || this.config.metadata?.thinkingBudget || 10000;
-                body.thinking = {
-                    type: 'enabled',
-                    budget_tokens: budget
-                };
-            }
+        this.configureThinking(body, params);
+        if (params.responseFormat?.type === 'json_schema') {
+            body.output_config = { ...body.output_config,
+                format: { type: 'json_schema', schema: params.responseFormat.json_schema.schema } };
         }
 
         // 工具 (包括 Computer Use)
@@ -206,6 +211,20 @@ export class AnthropicProvider extends BaseProvider {
         }
 
         return body;
+    }
+
+    private configureThinking(body: Record<string, any>, params: ChatCompletionParams): void {
+        const mode = params.thinking === undefined ? this.config.metadata?.thinkingMode
+            : params.thinking ? 'enabled' : 'disabled';
+        if (mode === 'disabled') { body.thinking = { type: 'disabled' }; return; }
+        if (mode !== 'enabled') return;
+        const budget = params.thinkingBudget ?? this.config.metadata?.thinkingBudget
+            ?? Math.min(10000, Math.floor(body.max_tokens / 2));
+        if (!Number.isSafeInteger(budget) || budget < 1024 || budget >= body.max_tokens) {
+            throw LLMError.fromResponse(this.name, 400, { message: 'Thinking budget must be at least 1024 and less than maxTokens' }, this.getModel(params));
+        }
+        body.thinking = { type: 'enabled', budget_tokens: budget };
+        if (params.reasoningEffort) body.output_config = { effort: params.reasoningEffort };
     }
 
     /**
@@ -464,15 +483,7 @@ export class AnthropicProvider extends BaseProvider {
                 },
                 finish_reason: this.mapStopReason(response.stop_reason)
             }],
-            usage: response.usage ? {
-                prompt_tokens: response.usage.input_tokens,
-                completion_tokens: response.usage.output_tokens,
-                total_tokens: response.usage.input_tokens + response.usage.output_tokens,
-                cached_tokens: response.usage.cache_read_input_tokens,
-                details: {
-                    reasoning_tokens: response.usage.thinking_tokens
-                }
-            } : undefined,
+            usage: response.usage ? this.normalizeUsage(response.usage) : undefined,
             cache: response.usage?.cache_creation_input_tokens || response.usage?.cache_read_input_tokens ? {
                 hit: (response.usage.cache_read_input_tokens || 0) > 0,
                 cached_tokens: response.usage.cache_read_input_tokens
@@ -480,10 +491,21 @@ export class AnthropicProvider extends BaseProvider {
         };
     }
 
+    private normalizeUsage(usage: Record<string, number>) {
+        const prompt = (usage.input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0)
+            + (usage.cache_creation_input_tokens ?? 0);
+        const completion = usage.output_tokens ?? 0;
+        return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion,
+            cached_tokens: usage.cache_read_input_tokens,
+            details: { reasoning_tokens: usage.thinking_tokens,
+                cache_creation_input_tokens: usage.cache_creation_input_tokens } };
+    }
+
     protected normalizeStreamEvent(
         event: any,
         _currentThinking: string,
-        _currentContent: string
+        _currentContent: string,
+        usage: Record<string, number> = {}
     ): ChatCompletionChunk | null {
         const type = event.type;
 
@@ -492,6 +514,7 @@ export class AnthropicProvider extends BaseProvider {
                 return {
                     id: event.message?.id,
                     model: event.message?.model,
+                    usage: event.message?.usage ? this.normalizeUsage(usage) : undefined,
                     choices: [{
                         index: 0,
                         delta: { role: 'assistant' },
@@ -568,21 +591,11 @@ export class AnthropicProvider extends BaseProvider {
                         delta: {},
                         finish_reason: this.mapStopReason(event.delta?.stop_reason)
                     }],
-                    usage: event.usage ? {
-                        prompt_tokens: event.usage.input_tokens || 0,
-                        completion_tokens: event.usage.output_tokens || 0,
-                        total_tokens: (event.usage.input_tokens || 0) + (event.usage.output_tokens || 0)
-                    } : undefined
+                    usage: event.usage ? this.normalizeUsage(usage) : undefined
                 };
 
             case 'message_stop':
-                return {
-                    choices: [{
-                        index: 0,
-                        delta: {},
-                        finish_reason: 'stop'
-                    }]
-                };
+                return null;
 
             default:
                 return null;

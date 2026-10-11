@@ -122,7 +122,8 @@ export class ResponsesProvider extends BaseProvider {
                 const output = payload.output ?? payload.response?.output ?? [];
                 const citations = collectCitations(output);
                 if (citations.length) aggregator.citations = citations;
-                const final = aggregator.finalize(event === 'response.failed');
+                const final = aggregator.finalize(event === 'response.failed' ? 'error'
+                    : event === 'response.incomplete' ? 'length' : 'stop');
                 if (final) yield final;
                 break;
             }
@@ -455,7 +456,7 @@ class StreamAggregator {
         return [{ id: itemId, type: 'function', function: { name: '', arguments: argumentsStr } }];
     }
 
-    finalize(failed: boolean): ChatCompletionChunk | undefined {
+    finalize(reason: 'error' | 'length' | 'stop'): ChatCompletionChunk | undefined {
         // 终态 chunk：内容已通过 output_text.delta 逐条发出，这里补 usage / finish_reason / citations。
         return {
             id: this.id,
@@ -463,7 +464,7 @@ class StreamAggregator {
             choices: [{
                 index: 0,
                 delta: {},
-                finish_reason: failed ? 'error' : 'stop',
+                finish_reason: reason,
             }],
             usage: this.usage,
             ...(this.citations?.length ? { citations: this.citations } : {}),

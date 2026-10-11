@@ -455,3 +455,16 @@ describe('DeepSeek API mode (Responses API)', () => {
         }]);
     });
 });
+
+it.each([['response.incomplete', 'length'], ['response.failed', 'error'], ['response.completed', 'stop']])
+    ('preserves terminal status %s in the stream', async (event, reason) => {
+        const driver = new LLMDriver({ provider: 'openai', protocol: 'openai-responses', apiKey: 'test', model: 'probe',
+            fetch: async () => new Response(`event: ${event}\ndata: ${JSON.stringify({ response: {
+                status: event.slice(9), output: [], usage: { input_tokens: 10, output_tokens: 100 },
+                incomplete_details: { reason: 'max_output_tokens' },
+            } })}\n\n`) });
+        const chunks = [];
+        for await (const chunk of await driver.chat.create({ messages: [{ role: 'user', content: 'probe' }], stream: true })) chunks.push(chunk);
+        expect(chunks.at(-1)?.choices[0].finish_reason).toBe(reason);
+        expect(chunks.at(-1)?.usage).toMatchObject({ total_tokens: 110 });
+    });
