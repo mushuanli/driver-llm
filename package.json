@@ -1,6 +1,6 @@
 {
   "name": "@itookit/driver-llm",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Standalone model protocol client with streaming, cancellation and injectable transport",
   "type": "module",
   "main": "./src/index.ts",
