@@ -286,6 +286,8 @@ export interface ConnectionMeta {
     tiers?: Partial<Record<ModelTier, string>>;
     /** 关联 Provider 是否已配置 apiKey */
     hasApiKey: boolean;
+    /** Host-resolved readiness for API-key, OAuth or local-provider credentials. */
+    credentialsReady?: boolean;
     /**
      * 此连接是否可用（Connection.enabled && Provider.enabled 均为 true）。
      * false = 连接或其 Provider 被禁用，不可发起请求。

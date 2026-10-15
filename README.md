@@ -71,7 +71,9 @@ const client = new LLMDriver({
 
 注入的 `fetch` 用于模型请求；模型目录辅助函数可通过第二个参数注入 `fetch` 和 `signal`。HTTP 附件读取是独立辅助函数。需要自定义文件或资源读取时，调用方可以先把附件转换为内容块，或通过 `hooks.beforeRequest` 准备请求。
 
-## ChatGPT 订阅 OAuth（0.3.0）
+## ChatGPT 订阅 OAuth（0.3.1）
+
+`ConnectionMeta.credentialsReady` 是宿主可选的认证可用性投影，允许 UI 统一表示 API Key、OAuth 和本地连接，不包含凭据。
 
 `provider: 'chatgpt'` 使用官方 Sign in with ChatGPT 的订阅授权，协议仍为 `openai-responses`，不接受 API key 代替 OAuth 会话。宿主负责浏览器登录、PKCE、身份验证、账号选择、凭据存储和刷新令牌轮换；driver 只注入通信端口，无登录服务器或文件系统依赖。
 
