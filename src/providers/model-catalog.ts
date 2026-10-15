@@ -1,4 +1,7 @@
 import type { LLMModel, LLMProvider } from '../types';
+import type { ChatGPTConfig } from '../types';
+import { ChatGPTError } from './chatgpt-auth';
+import { listChatGPTModels } from './chatgpt-models';
 
 type CatalogPage = Record<string, unknown>;
 
@@ -46,17 +49,22 @@ function nextCursor(page: CatalogPage, gemini: boolean): string | undefined {
 }
 
 /** Read all pages atomically so failures never return a partial catalog. */
-export async function listProviderModels(provider: LLMProvider): Promise<LLMModel[]> {
+export async function listProviderModels(provider: LLMProvider,
+    options: { chatgpt?: ChatGPTConfig; fetch?: typeof globalThis.fetch; signal?: AbortSignal } = {}): Promise<LLMModel[]> {
+    if (provider.id === 'chatgpt' || provider.implementation === 'chatgpt' || options.chatgpt) {
+        if (!options.chatgpt) throw new ChatGPTError('auth_session_required', 401);
+        return listChatGPTModels(options.chatgpt, options);
+    }
     if (provider.id === 'codex') throw new Error('This provider does not expose an HTTP model catalog');
     const url = catalogURL(provider);
     if (provider.authMethod === 'query-param' && provider.apiKey) url.searchParams.set('key', provider.apiKey);
     const gemini = provider.implementation === 'gemini';
     const headers = catalogHeaders(provider);
-    const signal = AbortSignal.timeout(30_000);
+    const signal = options.signal ?? AbortSignal.timeout(30_000);
     const models = new Map<string, LLMModel>();
     const cursors = new Set<string>();
     for (let index = 0; index < 100; index++) {
-        const response = await fetch(url, { headers, signal });
+        const response = await (options.fetch ?? globalThis.fetch)(url, { headers, signal });
         if (!response.ok) throw new Error(`Model catalog request failed: HTTP ${response.status}`);
         const page: CatalogPage = await response.json();
         const entries = page?.[gemini ? 'models' : 'data'];

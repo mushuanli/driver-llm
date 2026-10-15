@@ -1,6 +1,6 @@
 # @itookit/driver-llm
 
-独立的 TypeScript 模型通信客户端，支持 OpenAI Chat、Responses、Anthropic、Gemini 和可注入传输的 Codex。提供统一请求与响应、流式解析、多模态编码、超时和取消。
+独立的 TypeScript 模型通信客户端，支持 OpenAI Chat、Responses、ChatGPT 订阅 OAuth、Anthropic、Gemini 和可注入传输的 Codex。提供统一请求与响应、流式解析、多模态编码、超时和取消。
 
 发布产物没有运行时或 peer 依赖。ESM、CommonJS 与类型声明均可直接使用；通信消息类型由本包定义，源码与构建均不依赖其他 `@itookit/*` 包。
 
@@ -69,7 +69,48 @@ const client = new LLMDriver({
 
 `maxRetries` 保留旧 API 含义：最多尝试次数，设为 `1` 禁用重试。取消会中断重试等待。`logger` 提供 `debug/info/warn/error`；默认不输出日志。
 
-注入的 `fetch` 用于模型请求；HTTP 附件读取和模型目录查询是独立辅助函数。需要自定义文件或资源读取时，调用方可以先把附件转换为内容块，或通过 `hooks.beforeRequest` 准备请求。
+注入的 `fetch` 用于模型请求；模型目录辅助函数可通过第二个参数注入 `fetch` 和 `signal`。HTTP 附件读取是独立辅助函数。需要自定义文件或资源读取时，调用方可以先把附件转换为内容块，或通过 `hooks.beforeRequest` 准备请求。
+
+## ChatGPT 订阅 OAuth（0.3.0）
+
+`provider: 'chatgpt'` 使用官方 Sign in with ChatGPT 的订阅授权，协议仍为 `openai-responses`，不接受 API key 代替 OAuth 会话。宿主负责浏览器登录、PKCE、身份验证、账号选择、凭据存储和刷新令牌轮换；driver 只注入通信端口，无登录服务器或文件系统依赖。
+
+自定义 Provider ID 可在 `customProviderDefaults` 中声明 `implementation:'chatgpt'`，并显式提供 `defaultProtocol:'openai-responses'`、`baseURL:'https://api.openai.com/v1'`、模型目录及同一个 `chatgpt.session`。这一实现类型始终应用订阅通道限制，不能用覆盖协议绕过。
+
+```ts
+import { LLMDriver, createChatGPTAuthSession, listChatGPTModels } from '@itookit/driver-llm';
+
+// credentialStore and renewAndSaveCredentials are supplied by the host.
+// Bind this session to one validated account/workspace registration.
+const session = createChatGPTAuthSession({
+  read: () => credentialStore.readAccessToken(),
+  refresh: () => renewAndSaveCredentials(),
+});
+const chatgpt = { session };
+const models = await listChatGPTModels(chatgpt);
+const selected = models.find(model => model.id === userSelectedModel);
+if (!selected) throw new Error('Select an available account model');
+
+const client = new LLMDriver({ provider: 'chatgpt', chatgpt, model: selected.id });
+try {
+  const response = await client.chat.create({ messages: [{ role: 'user', content: '你好' }] });
+  console.log(response.choices[0]?.message.content);
+} finally {
+  await client.dispose();
+}
+```
+
+`read` / `refresh` 返回 `{ accessToken, scopes, expiresAt? }`。`scopes` 必须来自实际 token 响应且含 `resource.invoke`、`chatgpt.tokens.use.direct`；`expiresAt` 是 Unix 毫秒。宿主在 `refresh` 返回前原子保存新凭据（含轮换的 refresh token），并保留账号绑定。driver 不解析或验证 ID token；宿主须完成此步骤。账号切换使用新 session，并重新读取该账号模型目录。
+
+同一账号的多个 driver 和目录请求应复用同一 session：过期或首次 401 合并刷新，最多重新发送一次未通过认证的请求。取消一个等待者不取消共享刷新。401 重试后仍失败、额度不足、流中失败和传输中断均不隐式重发生成；自定义 `retryPolicy` 可以覆盖这一默认，请勿对已开始的生成盲目重试。
+
+请求固定到公共 `https://api.openai.com/v1/responses`，禁止重定向；`store:false`、`stream:true`、完整 `input` 历史由驱动生成。同步 `create` 在内部消费 SSE，并从 `response.completed` 返回完整输出；未完成、失败或提前 EOF 均抛出 `ChatGPTError`，可检查 `reason`。普通 Responses Provider 的 incomplete 行为保留。
+
+订阅通道省略 `temperature`、`topP`、`maxTokens`、`stop`、`user` 和 `metadata`，不保证这些控制生效；system 内容转成 instructions，函数工具放入固定 `functions` namespace。首版支持文本、`image_url` 输入、函数工具和模型允许的 web search；拒绝音视频、文件内容、托管 MCP、代码执行和图像生成工具。图像生成、TTS 等业务需要其他支持对应操作的连接。
+
+`listChatGPTModels` 使用同一 OAuth 会话读取账号目录，仅保留 `visibility:'list'`，按服务器顺序返回 `slug` 和 `display_name`；目录结果不推断模态、工具权限或定价。原目录接口也可使用 `listProviderModels(provider, { chatgpt, fetch, signal })`。模型是否真正可用仍以该账号实际推理结果为准。
+
+依据 [OpenAI 官方推理文档](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference)、[预览限制](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations)、[登录与权限](https://developers.openai.com/siwc/token-sharing-open-source/sign-in) 和 [令牌说明](https://developers.openai.com/siwc/token-sharing-open-source/token-reference)。适用范围及接入资格由官方规则决定；库的测试使用模拟 HTTP，不代表真实账号授权验收。
 
 ## 公共入口
 

@@ -32,7 +32,8 @@ import { parseEventStream } from '../utils/stream';
  * 内部将外部统一的 ChatCompletionParams 双向转换为 Responses 格式。
  */
 export class ResponsesProvider extends BaseProvider {
-    readonly name = 'responses';
+    protected readonly completeToolCallsOnly: boolean = false;
+    readonly name: string = 'responses';
 
     readonly capabilities: ProviderCapabilities = {
         vision: true,
@@ -95,6 +96,14 @@ export class ResponsesProvider extends BaseProvider {
     }
 
     async *stream(params: ChatCompletionParams): AsyncGenerator<ChatCompletionChunk> {
+        yield* this.streamResponse(params);
+    }
+
+    protected validateStreamEvent(_event: string | undefined, _payload: any): void {}
+    protected validateStreamEnd(_terminal?: string): void {}
+
+    protected async *streamResponse(params: ChatCompletionParams,
+        onCompleted?: (response: any) => void): AsyncGenerator<ChatCompletionChunk> {
         this.validateParams(params);
 
         const url = this.resolveResponsesUrl();
@@ -108,12 +117,18 @@ export class ResponsesProvider extends BaseProvider {
         });
 
         const aggregator = new StreamAggregator();
-        for await (const { event, data } of parseEventStream(raw)) {
+        let terminal: string | undefined;
+        for await (const frame of parseEventStream(raw)) {
+            const { data } = frame;
             const payload = this.safeJson(data);
             if (!payload) continue;
+            const event = frame.event ?? payload.type;
+            this.validateStreamEvent(event, payload);
 
             // 终态事件 — 刷新 usage / citations 后结束（内容已逐 delta 发出，此处补 usage/finish/citations）
             if (event === 'response.completed' || event === 'response.incomplete' || event === 'response.failed') {
+                terminal = event;
+                if (event === 'response.completed') onCompleted?.(payload.response ?? payload);
                 // DeepSeek 终态事件把完整 response 对象嵌套在 payload.response 下
                 // （usage / output 均在 response.*），OpenAI 兼容形状则在顶层。
                 const usage = payload.usage ?? payload.response?.usage;
@@ -131,11 +146,12 @@ export class ResponsesProvider extends BaseProvider {
             const chunk = this.handleStreamEvent(event, payload, aggregator);
             if (chunk) yield chunk;
         }
+        this.validateStreamEnd(terminal);
     }
 
     // ============== 请求构建 ==============
 
-    private buildResponsesBody(params: ChatCompletionParams): Record<string, any> {
+    protected buildResponsesBody(params: ChatCompletionParams): Record<string, any> {
         const { instructions, input } = this.convertMessagesToInput(params.messages);
         const body: Record<string, any> = {
             model: this.getModel(params),
@@ -306,7 +322,7 @@ export class ResponsesProvider extends BaseProvider {
 
     // ============== 响应标准化 ==============
 
-    private normalizeResponse(response: any): ChatCompletionResponse {
+    protected normalizeResponse(response: any): ChatCompletionResponse {
         const output: any[] = response.output ?? [];
         const text = collectText(output);
         const toolCalls = collectToolCalls(output);
@@ -367,21 +383,19 @@ export class ResponsesProvider extends BaseProvider {
 
         switch (event) {
             case 'response.created':
-                agg.id = payload.id;
+                agg.id = payload.response?.id ?? payload.id;
                 break;
             case 'response.output_text.delta':
-                agg.text += payload.delta ?? '';
                 delta.content = payload.delta;
                 break;
             case 'response.reasoning_text.delta':
-                agg.thinking += payload.delta ?? '';
                 delta.thinking = payload.delta;
                 break;
             case 'response.function_call_arguments.delta':
-                agg.accumulateTool(payload.item_id, payload.delta);
+                if (!this.completeToolCallsOnly) agg.accumulateTool(payload.item_id, payload.delta);
                 break;
             case 'response.function_call_arguments.done':
-                delta.tool_calls = agg.flushTool(payload.item_id);
+                if (!this.completeToolCallsOnly) delta.tool_calls = agg.flushTool(payload.item_id);
                 break;
             case 'response.output_item.done':
                 if (payload.item?.type === 'function_call') {
@@ -425,7 +439,7 @@ export class ResponsesProvider extends BaseProvider {
         };
     }
 
-    private safeJson(data: string): any | undefined {
+    protected safeJson(data: string): any | undefined {
         try {
             return parseWireEvent(data);
         } catch {
@@ -438,8 +452,6 @@ export class ResponsesProvider extends BaseProvider {
 
 class StreamAggregator {
     id?: string;
-    text = '';
-    thinking = '';
     usage?: any;
     citations?: Citation[];
     private toolArgs = new Map<string, string>();

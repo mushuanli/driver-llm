@@ -92,6 +92,7 @@ export type ApiProtocol = 'openai-chat' | 'openai-responses' | 'anthropic-messag
 
 export type LLMProviderImplementation =
     | 'openai-compatible'
+    | 'chatgpt'
     | 'anthropic'
     | 'gemini'
     | 'custom';

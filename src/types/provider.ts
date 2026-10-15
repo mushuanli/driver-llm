@@ -30,6 +30,8 @@ import type { ApiProtocol } from './connection';
  * Provider 配置（传给 BaseProvider）
  */
 export interface LLMProviderConfig {
+    /** ChatGPT plan usage via host-managed Sign in with ChatGPT credentials. */
+    chatgpt?: import('./chatgpt').ChatGPTConfig;
     logger?: LLMLogSink;
     fetch?: typeof globalThis.fetch;
     /** Provider key */
@@ -216,6 +218,7 @@ export interface LLMHooks {
  * LLMDriver 构造配置
  */
 export interface LLMClientConfig {
+    chatgpt?: import('./chatgpt').ChatGPTConfig;
     /** Instance factory, typically created by ProviderRegistry.snapshot(). */
     providerFactory?: ProviderFactory;
     responses?: LLMProviderConfig['responses'];

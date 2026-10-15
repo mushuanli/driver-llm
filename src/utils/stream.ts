@@ -70,6 +70,7 @@ export async function* parseEventStream(
             }
         }
     } finally {
+        await reader.cancel().catch(() => {});
         reader.releaseLock();
     }
 }

@@ -2,6 +2,7 @@ import { getPrimaryProtocol } from '../types';
 import type { LLMProviderConfig, LLMProvider, ApiProtocol, ProviderFactory, ProviderConstructor, LLMProviderInstance } from '../types';
 import { OpenAIProvider } from './openai';
 import { ResponsesProvider } from './responses';
+import { ChatGPTProvider } from './chatgpt';
 import { AnthropicProvider } from './anthropic';
 import { GeminiProvider } from './gemini';
 import { CodexProvider } from './codex';
@@ -13,7 +14,7 @@ const implementations: Readonly<Record<string, ProviderConstructor | undefined>>
 const builtins: Readonly<Record<string, ProviderConstructor>> = Object.freeze({
     openai: OpenAIProvider, deepseek: OpenAIProvider, groq: OpenAIProvider, openrouter: OpenAIProvider,
     ollama: OpenAIProvider, custom: OpenAIProvider, volcengine: OpenAIProvider,
-    codex: CodexProvider, anthropic: AnthropicProvider, gemini: GeminiProvider,
+    codex: CodexProvider, chatgpt: ChatGPTProvider, anthropic: AnthropicProvider, gemini: GeminiProvider,
 });
 
 export interface ProviderRegistry {
@@ -53,6 +54,7 @@ export function resolveProtocol(url: string, providerName: string, explicit?: Ap
     if (url.includes('generativelanguage') || url.includes('generateContent')) return 'gemini-generate';
     if (providerName === 'anthropic') return 'anthropic-messages';
     if (providerName === 'gemini') return 'gemini-generate';
+    if (providerName === 'chatgpt') return 'openai-responses';
     return 'openai-chat';
 }
 
@@ -74,7 +76,9 @@ function instantiateProvider(config: LLMProviderConfig, defaults: Record<string,
         config = { ...config, protocol: preferred ?? definition.defaultProtocol };
     }
     const implementation = definition && implementations[definition.implementation];
-    const Provider = (config.protocol ? protocols[config.protocol] : undefined)
+    const chatgpt = config.provider === 'chatgpt' || definition?.implementation === 'chatgpt';
+    const Provider = (chatgpt ? lookup('chatgpt') ?? ChatGPTProvider : undefined)
+        ?? (config.protocol ? protocols[config.protocol] : undefined)
         ?? lookup(config.provider) ?? implementation ?? OpenAIProvider;
     return new Provider(definition ? applyDefinition(config, definition) : config);
 }

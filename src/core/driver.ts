@@ -46,7 +46,8 @@ export class LLMDriver {
         if (!provider) {
             throw new Error('LLMDriver requires provider (either directly or via connection)');
         }
-        if (!apiKey && provider !== 'codex') {
+        if (!apiKey && provider !== 'codex' && provider !== 'chatgpt'
+            && config.customProviderDefaults?.[provider]?.implementation !== 'chatgpt') {
             throw new Error('LLMDriver requires apiKey (either directly or via connection)');
         }
         
@@ -66,6 +67,7 @@ export class LLMDriver {
             fetch: config.fetch,
             logger: this.log,
             codex: config.codex,
+            chatgpt: config.chatgpt,
         };
         
         // 4. 保存配置

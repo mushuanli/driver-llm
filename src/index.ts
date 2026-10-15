@@ -80,6 +80,8 @@ export type {
 export { BaseProvider } from './providers/base';
 export { OpenAIProvider } from './providers/openai';
 export { ResponsesProvider } from './providers/responses';
+export { ChatGPTProvider } from './providers/chatgpt';
+export { createChatGPTAuthSession, ChatGPTError } from './providers/chatgpt-auth';
 export { AnthropicProvider } from './providers/anthropic';
 export { GeminiProvider } from './providers/gemini';
 export { CodexProvider } from './providers/codex';
@@ -126,3 +128,4 @@ export { NoopLLMLogger } from './utils/llm-logger';
 export type * from './types';
 export { API_PROTOCOLS, getPrimaryProtocol, getProviderProtocols, getProviderDefaultProtocol } from './types/protocol';
 export { listProviderModels } from './providers/model-catalog';
+export { listChatGPTModels } from './providers/chatgpt-models';

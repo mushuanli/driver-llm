@@ -1,6 +1,7 @@
 // @file: driver-llm/types/index.ts
 
 export * from './connection';
+export type * from './chatgpt';
 export * from './message';
 export * from './provider';
 export * from './response';

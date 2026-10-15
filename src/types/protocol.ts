@@ -5,6 +5,7 @@ export const API_PROTOCOLS: readonly ApiProtocol[] = [
 ];
 
 export function getPrimaryProtocol(provider: Pick<LLMProvider, 'implementation'>): ApiProtocol {
+    if (provider.implementation === 'chatgpt') return 'openai-responses';
     if (provider.implementation === 'anthropic') return 'anthropic-messages';
     if (provider.implementation === 'gemini') return 'gemini-generate';
     return 'openai-chat';

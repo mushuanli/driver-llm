@@ -13,6 +13,7 @@ export type { ConnectionTestResult };
 export async function testLLMConnection(config: ProviderConnectionTestParams & {
     timeout?: number;
     codex?: import('../types/provider').CodexCLIConfig;
+    chatgpt?: import('../types/chatgpt').ChatGPTConfig;
 }): Promise<ConnectionTestResult> {
     const { provider, apiKey, baseURL, model, timeout = 15000, codex } = config;
     
@@ -20,7 +21,7 @@ export async function testLLMConnection(config: ProviderConnectionTestParams & {
     if (!provider) {
         return { success: false, message: 'Provider is required' };
     }
-    if (!apiKey && provider !== 'codex') {
+    if (!apiKey && provider !== 'codex' && provider !== 'chatgpt' && config.providerDefinition?.implementation !== 'chatgpt') {
         return { success: false, message: 'API Key is required' };
     }
     
@@ -46,6 +47,7 @@ export async function testLLMConnection(config: ProviderConnectionTestParams & {
             timeout,
             maxRetries: 1, // 测试时不重试
             codex,
+            chatgpt: config.chatgpt,
         });
         
         // 4. 发送测试请求
