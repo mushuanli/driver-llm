@@ -12,6 +12,7 @@ export type ModelCategory = 'chat' | 'image' | 'video' | 'audio' | 'embedding';
 
 
 export interface LLMModel {
+    operations?: Partial<Record<import('./media').MediaOperation, import('./media').MediaModelCapabilities>>;
     id: string;
     name: string;
     icon?: string;
@@ -105,6 +106,7 @@ export type LLMProviderImplementation =
  * 对外通过 `getProviders()` 返回无 apiKey 版本。
  */
 export interface LLMProvider {
+    media?: Partial<Record<import('./media').MediaOperation, import('./media').MediaEndpoint>>;
     /** Provider 唯一标识（如 'anthropic'、'gemini'、'deepseek'） */
     id: string;
     name: string;
@@ -276,6 +278,7 @@ export interface LLMConnection {
  * hasApiKey 反映关联 Provider 是否配置了 apiKey。
  */
 export interface ConnectionMeta {
+    baseURL?: string;
     id: string;
     name: string;
     /** Provider ID */

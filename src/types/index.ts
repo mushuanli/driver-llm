@@ -11,3 +11,6 @@ export * from './protocol';
 export type * from './service';
 
 export type * from './events';
+
+export type * from './media';
+export { supportsMediaEndpoint, isMediaCatalog, requireMediaCapabilities, validateMediaRequest } from './media-capabilities';

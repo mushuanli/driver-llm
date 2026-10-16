@@ -218,6 +218,8 @@ export interface LLMHooks {
  * LLMDriver 构造配置
  */
 export interface LLMClientConfig {
+    /** Media transport deadline; independent of chat and host Effect deadlines. */
+    mediaTimeout?: number;
     chatgpt?: import('./chatgpt').ChatGPTConfig;
     /** Instance factory, typically created by ProviderRegistry.snapshot(). */
     providerFactory?: ProviderFactory;

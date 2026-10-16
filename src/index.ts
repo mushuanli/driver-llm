@@ -129,3 +129,5 @@ export type * from './types';
 export { API_PROTOCOLS, getPrimaryProtocol, getProviderProtocols, getProviderDefaultProtocol } from './types/protocol';
 export { listProviderModels } from './providers/model-catalog';
 export { listChatGPTModels } from './providers/chatgpt-models';
+
+export { LLMMediaClient, type LLMMediaClientConfig } from './media/client';

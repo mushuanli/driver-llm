@@ -16,6 +16,7 @@ import type { ConnectionMeta, LLMProvider } from './connection';
  * 4. Provider 差异由底层 LLMDeviceDriver 抹平
  */
 export interface ILLMService {
+    generateMedia?(connectionId: string, request: import('./media').MediaGenerationRequest): Promise<import('./media').MediaGenerationResult>;
     // ── 对话调用 ──
 
     /**

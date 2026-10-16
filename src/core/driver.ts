@@ -1,3 +1,5 @@
+import { LLM_PROVIDERS } from '../defaults';
+import { LLMMediaClient } from '../media/client';
 // @file: driver-llm/core/driver.ts
 
 import {
@@ -26,6 +28,13 @@ import { noopLog } from '../utils/logger';
  * 5. 自动展开 ChatMessage.attachments 为 multipart content
  */
 export class LLMDriver {
+    async generateMedia(request: import('../types').MediaGenerationRequest): Promise<import('../types').MediaGenerationResult> {
+        const definition = this.config.customProviderDefaults?.[this.providerConfig.provider] ?? LLM_PROVIDERS[this.providerConfig.provider];
+        if (!definition) throw new Error('Media provider definition is unavailable');
+        const client = new LLMMediaClient({ provider: { ...definition, baseURL: this.providerConfig.apiBaseUrl ?? definition.baseURL },
+            apiKey: this.providerConfig.apiKey, headers: this.config.headers, fetch: this.config.fetch, timeoutMs: this.config.mediaTimeout ?? 120_000 });
+        return client.generate({ ...request, model: request.model ?? this.providerConfig.model });
+    }
     private readonly log: import('../types/provider').LLMLogSink;
     private provider: LLMProviderInstance;
     private readonly providerFactory: import('../types').ProviderFactory;

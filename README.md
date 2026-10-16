@@ -162,3 +162,20 @@ Anthropic 用量包含普通输入、缓存读取和缓存创建 token；流式�
 `ChatCompletionParams`、`ChatMessage`、`MessageContentPart` 和工具通信类型由驱动定义。调用方组装历史与上下文，再映射为这些请求类型；驱动不导入上下文引擎或会话模型。已有消息结构兼容时可直接传入，无需额外的运行时包装。
 
 普通消息、内容分段和工具 schema 可作为 JSON 数据传入。`signal` 和二进制 `attachments` 是可选的本地调用能力，JSON 序列化前必须移除或转换。网络、日志与重试函数通过客户端配置单独注入。
+
+
+### Media operations
+
+`LLMMediaClient.generate` and `LLMDriver.generateMedia` support `image.generate` and
+`speech.synthesize` through explicit OpenAI-compatible media endpoints. Declare both
+`provider.media[operation]` (adapter/path) and `model.operations[operation]` (modalities,
+formats and voices). Category and audio/vision flags do not imply generation support.
+Pure validation is exported from `/contracts`. Optional sizes, qualities, counts,
+speeds and instructions must also match the declared capability.
+
+The response contains binary assets; hosts must persist bytes outside durable journals.
+Responses are limited to 64 MiB, image URL results are rejected, and paid requests are
+never automatically retried. Media transport defaults to 120 seconds, configured through
+`LLMClientConfig.mediaTimeout` independently of chat. Pass a signal for cancellation.
+Legacy image endpoints explicitly opt into `responseFormat: 'b64_json'` and
+`outputFormatParameter: false`. Capability declarations are not live paid API probes.
