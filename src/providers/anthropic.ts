@@ -218,6 +218,11 @@ export class AnthropicProvider extends BaseProvider {
             : params.thinking ? 'enabled' : 'disabled';
         if (mode === 'disabled') { body.thinking = { type: 'disabled' }; return; }
         if (mode !== 'enabled') return;
+        if (this.config.metadata?.reasoningTransport === 'adaptive') {
+            body.thinking = { type: 'adaptive' };
+            if (params.reasoningEffort) body.output_config = { effort: params.reasoningEffort };
+            return;
+        }
         const budget = params.thinkingBudget ?? this.config.metadata?.thinkingBudget
             ?? Math.min(10000, Math.floor(body.max_tokens / 2));
         if (!Number.isSafeInteger(budget) || budget < 1024 || budget >= body.max_tokens) {

@@ -153,8 +153,11 @@ export class GeminiProvider extends BaseProvider {
         if (params.thinking) {
             body.generationConfig = body.generationConfig || {};
             body.generationConfig.thinkingConfig = {
-                thinkingBudget: params.thinkingBudget || 8000
+                ...(params.reasoningEffort ? { thinkingLevel: params.reasoningEffort } : { thinkingBudget: params.thinkingBudget ?? 8000 })
             };
+        } else if (params.thinking === false && this.config.metadata?.reasoningTransport === 'budget') {
+            body.generationConfig = body.generationConfig || {};
+            body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
         }
 
         // 工具配置

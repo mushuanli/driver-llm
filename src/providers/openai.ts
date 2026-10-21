@@ -193,17 +193,21 @@ export class OpenAIProvider extends BaseProvider {
         //   - params.thinking=true  → enabled
         //   - params.thinking=false → disabled ONLY for deepseek (it defaults thinking ON)
         //   - otherwise            → omit (adaptive)
-        if (this.capabilities.thinking) {
+        const transport = this.config.metadata?.reasoningTransport;
+        if (transport === 'effort') {
+            if (params.reasoningEffort) body.reasoning_effort = params.reasoningEffort;
+            else if (params.thinking === false) body.reasoning_effort = 'none';
+        } else if (this.capabilities.thinking) {
             const thinkingMode = this.config.metadata?.thinkingMode as string | undefined;
             if (thinkingMode === 'auto') {
                 // Explicitly omit — adaptive mode
-            } else if (thinkingMode === 'enabled' || params.thinking === true) {
+            } else if (params.thinking === true || params.thinking === undefined && thinkingMode === 'enabled') {
                 body.thinking = { type: 'enabled' };
                 if (params.reasoningEffort) {
                     body.reasoning_effort = params.reasoningEffort;
                 }
             } else if (thinkingMode === 'disabled' ||
-                       (params.thinking === false && this.config.provider === 'deepseek')) {
+                       (params.thinking === false && (transport === 'deepseek' || this.config.provider === 'deepseek'))) {
                 body.thinking = { type: 'disabled' };
             }
             // All other cases: omit thinking field → adaptive/default mode

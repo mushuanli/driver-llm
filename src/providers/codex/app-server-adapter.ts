@@ -172,7 +172,7 @@ export class CodexAppServerAdapter {
             threadId: this.threadId,
             input,
             ...(model ? { model } : {}),
-            effort: params.reasoningEffort ?? this.config.metadata?.reasoningEffort ?? 'high',
+            ...(params.reasoningEffort ?? this.config.metadata?.reasoningEffort ? { effort: params.reasoningEffort ?? this.config.metadata?.reasoningEffort } : {}),
             outputSchema: params.responseFormat?.type === 'json_schema'
                 ? params.responseFormat.json_schema.schema
                 : params.responseFormat?.type === 'json_object'

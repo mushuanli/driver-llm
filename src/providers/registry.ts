@@ -7,6 +7,7 @@ import { AnthropicProvider } from './anthropic';
 import { GeminiProvider } from './gemini';
 import { CodexProvider } from './codex';
 import { LLM_PROVIDERS } from '../defaults';
+import { modelReasoning } from '../types/reasoning';
 
 const protocols = Object.freeze({ 'openai-chat': OpenAIProvider, 'openai-responses': ResponsesProvider,
     'anthropic-messages': AnthropicProvider, 'gemini-generate': GeminiProvider });
@@ -84,7 +85,11 @@ function instantiateProvider(config: LLMProviderConfig, defaults: Record<string,
 }
 
 function applyDefinition(config: LLMProviderConfig, definition: LLMProvider): LLMProviderConfig {
+    const model = definition.models.find(item => item.id === config.model);
+    const reasoning = modelReasoning(model, config.protocol ?? getPrimaryProtocol(definition));
     return { ...config,
+        metadata: { ...config.metadata, thinkingMode: model?.thinkingMode ?? config.metadata?.thinkingMode,
+            reasoningTransport: reasoning?.transport ?? (reasoning && (config.protocol ?? getPrimaryProtocol(definition)) === 'openai-chat' ? 'effort' : undefined), reasoningCanDisable: reasoning?.canDisable },
         supportsThinking: config.supportsThinking ?? definition.supportsThinking,
         requiresReferer: config.requiresReferer ?? definition.requiresReferer,
         apiBaseUrl: config.apiBaseUrl || definition.baseURL,

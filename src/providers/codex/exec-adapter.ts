@@ -93,8 +93,7 @@ export class CodexExecAdapter {
     private buildArgs(params: ChatCompletionParams, model: string | undefined): string[] {
         const effort =
             params.reasoningEffort ??
-            (this.config.metadata?.reasoningEffort as string | undefined) ??
-            'high';
+            (this.config.metadata?.reasoningEffort as string | undefined);
         return [
             'exec',
             '--skip-git-repo-check',
@@ -102,8 +101,7 @@ export class CodexExecAdapter {
             '--color',
             'never',
             ...(model ? ['-m', model] : []),
-            '-c',
-            `model_reasoning_effort=${JSON.stringify(effort)}`,
+            ...(effort ? ['-c', `model_reasoning_effort=${JSON.stringify(effort)}`] : []),
             ...this.localImagePaths(params).flatMap(path => ['--image', path]),
             ...(this.config.codex?.args ?? []),
             this.renderPrompt(params),

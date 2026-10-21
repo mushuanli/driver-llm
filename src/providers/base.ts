@@ -197,6 +197,11 @@ export abstract class BaseProvider {
         return params.model || this.defaultModel;
     }
     
+    private diagnosticEndpoint(url: string): string {
+        try { const parsed = new URL(url); return parsed.origin + parsed.pathname; }
+        catch { return 'invalid-endpoint'; }
+    }
+
     /**
      * 发送 HTTP 请求
      */
@@ -217,16 +222,12 @@ export abstract class BaseProvider {
             } catch {
                 body = text;
             }
-            let requestBody: any;
-            try { requestBody = JSON.parse(options.body as string); } catch { requestBody = options.body; }
             this.log.error('[LLM] HTTP error (non-stream)', {
                 provider: this.name,
-                url,
+                endpoint: this.diagnosticEndpoint(url),
                 status: response.status,
-                statusText: response.statusText,
-                responseHeaders: this.headersSnapshot(response),
-                responseBody: body,
-                requestBody,
+                stage: 'response',
+                result: 'failed',
             });
             throw LLMError.fromResponse(this.name, response.status, body);
         }
@@ -254,16 +255,12 @@ export abstract class BaseProvider {
             } catch {
                 body = text;
             }
-            let requestBody: any;
-            try { requestBody = JSON.parse(options.body as string); } catch { requestBody = options.body; }
             this.log.error('[LLM] HTTP error (stream)', {
                 provider: this.name,
-                url,
+                endpoint: this.diagnosticEndpoint(url),
                 status: response.status,
-                statusText: response.statusText,
-                responseHeaders: this.headersSnapshot(response),
-                responseBody: body,
-                requestBody,
+                stage: 'response',
+                result: 'failed',
             });
             throw LLMError.fromResponse(this.name, response.status, body);
         }

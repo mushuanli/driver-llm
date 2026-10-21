@@ -6,8 +6,13 @@ export interface MediaModelCapabilities {
     maxInputCharacters?: number; maxOutputs?: number; speedRange?: { min: number; max: number };
 }
 export interface MediaEndpoint {
-    adapter: 'openai-images' | 'openai-speech'; path?: string;
-    responseFormat?: 'b64_json'; outputFormatParameter?: boolean;
+    adapter: string; path?: string;
+    /** Required for an externally registered adapter. */
+    operation?: MediaOperation;
+    adapterVersion?: string;
+    sampleRate?: number;
+    responseFormat?: 'b64_json' | 'url'; outputFormatParameter?: boolean;
+    assetHosts?: string[];
 }
 export interface ImageGenerationRequest {
     operation: 'image.generate'; model?: string; prompt: string; format: 'png' | 'jpeg' | 'webp';

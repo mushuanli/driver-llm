@@ -203,7 +203,7 @@ export class ResponsesProvider extends BaseProvider {
         const thinkingMode = this.config.metadata?.thinkingMode as string | undefined;
         // 服务端默认开启思考的厂商（如 DeepSeek）需显式 effort='none' 才能关闭；
         // 默认关闭思考的厂商（OpenAI 等）无需传 reasoning。
-        if (this.config.responses?.defaultThinkingEnabled
+        if ((this.config.responses?.defaultThinkingEnabled || this.config.metadata?.reasoningCanDisable === true)
             && (params.thinking === false || thinkingMode === 'disabled')) {
             return { effort: 'none' };
         }

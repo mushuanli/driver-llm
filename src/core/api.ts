@@ -1,8 +1,8 @@
 // @file: driver-llm/core/api.ts
 
 import type { ConnectionTestResult, ProviderConnectionTestParams } from '../types';
-import { LLMDriver } from './driver';
-import { LLMError } from '../errors';
+import { executeProbe, probeFailure, probeLogger, validateProbe } from './connection-probe';
+import { requestUUID } from '../utils/uuid';
 import { noopLog as log } from '../utils/logger';
 
 export type { ConnectionTestResult };
@@ -14,99 +14,29 @@ export async function testLLMConnection(config: ProviderConnectionTestParams & {
     timeout?: number;
     codex?: import('../types/provider').CodexCLIConfig;
     chatgpt?: import('../types/chatgpt').ChatGPTConfig;
+    logger?: import('../types/provider').LLMLogSink;
+    fetch?: typeof globalThis.fetch;
+    mediaAdapterFactory?: import('../types').MediaAdapterFactory;
 }): Promise<ConnectionTestResult> {
-    const { provider, apiKey, baseURL, model, timeout = 15000, codex } = config;
-    
-    // 1. 参数校验
-    if (!provider) {
-        return { success: false, message: 'Provider is required' };
-    }
-    if (!apiKey && provider !== 'codex' && provider !== 'chatgpt' && config.providerDefinition?.implementation !== 'chatgpt') {
-        return { success: false, message: 'API Key is required' };
-    }
-    
-    // 2. 确定模型
-    const testModel = model || config.providerDefinition?.models?.[0]?.id;
-    if (!testModel) return { success: false, message: 'Model is required' };
-    
-    log.debug('Testing connection', { provider, model: testModel });
-    
-    const startTime = Date.now();
-    
-    let driver: LLMDriver | undefined;
+    const started = performance.now(), requestId = requestUUID(), operation = config.operation ?? 'chat';
+    const logger = config.logger ?? log, metadata = { requestId, operation, providerId: config.provider, model: config.model };
+    logger.info('connection.test.started', metadata);
+    const invalid = validateProbe(config);
+    let result: Partial<ConnectionTestResult>;
     try {
-        // 3. 创建 Driver
-        driver = new LLMDriver({
-            provider,
-            connection: config.protocol ? { id: 'provider-test', name: 'Provider test', providerId: provider,
-                protocol: config.protocol, apiKey, baseURL, model: testModel } : undefined,
-            customProviderDefaults: config.providerDefinition ? { [provider]: config.providerDefinition } : undefined,
-            apiKey,
-            apiBaseUrl: baseURL,
-            model: testModel,
-            timeout,
-            maxRetries: 1, // 测试时不重试
-            codex,
-            chatgpt: config.chatgpt,
-        });
-        
-        // 4. 发送测试请求
-        const response = await driver.chat.create({
-            messages: [{ role: 'user', content: 'Hi' }],
-            model: testModel,
-            maxTokens: 5,
-            stream: false
-        });
-        
-        const latency = Date.now() - startTime;
-        
-        // 5. 验证响应
-        if (response.choices?.length > 0) {
-            log.info('Connection test passed', { provider, latency });
-            return {
-                success: true,
-                message: 'Connection successful',
-                latency,
-                model: response.model || testModel
-            };
-        } else {
-            return {
-                success: false,
-                message: 'Response was empty',
-                latency
-            };
-        }
-        
-    } catch (error: any) {
-        const latency = Date.now() - startTime;
-        
-        if (error instanceof LLMError) {
-            log.warn('Connection test failed', { provider, code: error.code });
-            return {
-                success: false,
-                message: `${error.code}: ${error.message}`,
-                latency
-            };
-        }
-        
-        log.error('Connection test error', { provider, error: error.message });
-
-        if (error.name === 'AbortError') {
-            return {
-                success: false,
-                message: 'Request timed out',
-                latency
-            };
-        }
-        
-        return {
-            success: false,
-            message: error.message || 'Unknown error',
-            latency
-        };
-    } finally {
-        await driver?.dispose();
-    }
+        result = invalid ? { success: false, code: 'CONNECTION_TEST_CONFIG', stage: 'validation', message: invalid }
+            : await executeProbe(config, { provider: config.provider, apiKey: config.apiKey,
+                customProviderDefaults: config.providerDefinition ? { [config.provider]: config.providerDefinition } : undefined,
+                apiBaseUrl: config.baseURL, model: config.model, protocol: config.protocol,
+                timeout: config.timeout ?? 15_000, mediaTimeout: 120_000, maxRetries: 1,
+                codex: config.codex, chatgpt: config.chatgpt, fetch: config.fetch, mediaAdapterFactory: config.mediaAdapterFactory, logger: probeLogger(logger, requestId) });
+    } catch (error) { result = probeFailure(error); }
+    if (config.apiKey && result.message) result.message = result.message.split(config.apiKey).join('[redacted]');
+    const latency = Math.round(performance.now() - started);
+    logger[result.success ? 'info' : 'error']('connection.test.completed', { ...metadata, success: !!result.success,
+        stage: result.stage ?? 'response', validationReason: invalid,
+        code: result.code, statusCode: result.statusCode, remoteCode: result.remoteCode, transportCode: result.transportCode, durationMs: latency });
+    return { success: false, message: '', ...result, model: result.model ?? config.model, requestId, operation, latency };
 }
 
 /**

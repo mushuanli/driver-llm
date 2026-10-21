@@ -174,8 +174,39 @@ Pure validation is exported from `/contracts`. Optional sizes, qualities, counts
 speeds and instructions must also match the declared capability.
 
 The response contains binary assets; hosts must persist bytes outside durable journals.
-Responses are limited to 64 MiB, image URL results are rejected, and paid requests are
+Responses are limited to 64 MiB, image URL results require an explicit HTTPS host allowlist, and paid requests are
 never automatically retried. Media transport defaults to 120 seconds, configured through
 `LLMClientConfig.mediaTimeout` independently of chat. Pass a signal for cancellation.
 Legacy image endpoints explicitly opt into `responseFormat: 'b64_json'` and
 `outputFormatParameter: false`. Capability declarations are not live paid API probes.
+
+## 媒体协议与模型目录
+
+`LLMMediaClient` 统一提供 `image.generate` 和 `speech.synthesize`。Provider 的 `media` 选择 `openai-images`、`volcengine-images`、`openai-speech` 或 `doubao-speech`；模型的 `operations` 声明具体输入/输出模态、格式、音色与范围。
+
+豆包原生语音端点示例：
+
+```ts
+media: {
+  'speech.synthesize': {
+    adapter: 'doubao-speech',
+    path: '/api/v3/tts/unidirectional',
+    sampleRate: 24000,
+  },
+}
+```
+
+调用方传入已授权的模型资源 ID、音色及 API Key。适配器生成 X-Api 请求头、映射 req_params，并校验所有 JSON 音频分段；HTTP 或业务错误、取消和空音频均拒绝整个结果，不返回部分音频、不自动重试。支持 MP3、Opus（请求映射为 ogg_opus）和 PCM；语速 0.5–2 映射为原生 speech_rate。诊断使用注入 logger，记录请求身份、厂商 logid、错误码及结果大小，不记录正文和凭据。协议依据[豆包单向流式 HTTP 文档](https://docs.volcengine.com/docs/DoubaoVoice/unidirectional-streaming-text-to-speech-http?lang=zh)。
+
+目录查询保留明确的 supportsXXX/capabilities、输入输出模态、supported_parameters 和有效 operations；没有能力字段时返回 capabilitiesKnown=false，不根据模型名称补全。modelsPath 优先于从聊天路径派生的目录地址。目录读取不会探测付费生成能力，模型可用性仍需调用方核对权限及具体请求要求。
+
+
+## Text probes and model reasoning
+
+Provider connection probes require a caller-selected text model. Media verification is a separate explicit operation with a matching request; it uses the production media path and never retries a paid generation. Codex without an explicit model or effort inherits its host settings. Probe results include operation, model, requestId, stage (`validation`, `transport` or `response`), safe error codes and latency. A fetch rejection is `NETWORK_ERROR` at the transport stage without an invented HTTP status; recognized nested DNS/TCP/TLS causes are exposed as `transportCode`. Browser transport errors alone cannot distinguish CORS from network failure. Previews up to 8 MiB use the existing typed byte contract.
+
+Model `reasoning` declares supported effort IDs, optional wire values, default effort, `canDisable`, budget bounds and protocol transport. `reasoningByProtocol` narrows the contract for a gateway protocol; `false` disables reasoning on that route. Unknown declarations remain unknown, while explicit invalid selections fail before transport. The catalog reader accepts explicit `effort.supported_levels/default_level` metadata without guessing from model names. Legacy requests without a declaration retain their previous compatibility behavior.
+
+`createMediaAdapterRegistry().snapshot()` injects additional implementations through `LLMClientConfig.mediaAdapterFactory` or `LLMMediaClientConfig.adapterFactory`. External endpoints declare `operation` and may pin `adapterVersion`; registration is scoped to a runtime and snapshots cannot be changed by later registrations. The host owns authorization, storage and reconciliation.
+
+The `volcengine-images` adapter uses the native image path and requests Base64 explicitly. URL mode is opt-in via `responseFormat: 'url'` and `assetHosts`; downloads use HTTPS, bounded reads, no inference credentials and no redirects. Native and downloaded images check their requested format. Doubao Opus requests use 48 kHz independently of the default MP3/PCM sample rate.

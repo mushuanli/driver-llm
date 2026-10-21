@@ -43,7 +43,6 @@ describe('CodexProvider', () => {
         expect(response.usage).toMatchObject({ prompt_tokens: 10, completion_tokens: 2, total_tokens: 12, cached_tokens: 3, thinking_tokens: 1 });
         expect(run).toHaveBeenCalledWith('codex', [
             'exec', '--skip-git-repo-check', '--json', '--color', 'never', '-m', 'gpt-5.6-sol',
-            '-c', 'model_reasoning_effort="high"',
             'user: 只回复 OK',
         ], expect.objectContaining({ signal: expect.any(AbortSignal) }));
     });

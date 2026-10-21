@@ -5,6 +5,7 @@
 
 export { LLMDriver } from './core/driver';
 export { testLLMConnection, testMultipleConnections } from './core/api';
+export { createMediaAdapterRegistry, type MediaAdapter, type MediaAdapterFactory } from './media/registry';
 export type { ConnectionTestResult } from './core/api';
 
 // ============================================

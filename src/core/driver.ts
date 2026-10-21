@@ -1,4 +1,7 @@
 import { LLM_PROVIDERS } from '../defaults';
+import { requestUUID } from '../utils/uuid';
+import { resolveReasoningRequest } from '../types/reasoning';
+import { getProviderDefaultProtocol } from '../types/protocol';
 import { LLMMediaClient } from '../media/client';
 // @file: driver-llm/core/driver.ts
 
@@ -32,7 +35,8 @@ export class LLMDriver {
         const definition = this.config.customProviderDefaults?.[this.providerConfig.provider] ?? LLM_PROVIDERS[this.providerConfig.provider];
         if (!definition) throw new Error('Media provider definition is unavailable');
         const client = new LLMMediaClient({ provider: { ...definition, baseURL: this.providerConfig.apiBaseUrl ?? definition.baseURL },
-            apiKey: this.providerConfig.apiKey, headers: this.config.headers, fetch: this.config.fetch, timeoutMs: this.config.mediaTimeout ?? 120_000 });
+            apiKey: this.providerConfig.apiKey, headers: this.config.headers, fetch: this.config.fetch, logger: this.log,
+            adapterFactory: this.config.mediaAdapterFactory, timeoutMs: this.config.mediaTimeout ?? 120_000 });
         return client.generate({ ...request, model: request.model ?? this.providerConfig.model });
     }
     private readonly log: import('../types/provider').LLMLogSink;
@@ -56,7 +60,8 @@ export class LLMDriver {
             throw new Error('LLMDriver requires provider (either directly or via connection)');
         }
         if (!apiKey && provider !== 'codex' && provider !== 'chatgpt'
-            && config.customProviderDefaults?.[provider]?.implementation !== 'chatgpt') {
+            && config.customProviderDefaults?.[provider]?.implementation !== 'chatgpt'
+            && config.customProviderDefaults?.[provider]?.credentialMode !== 'host') {
             throw new Error('LLMDriver requires apiKey (either directly or via connection)');
         }
         
@@ -159,7 +164,7 @@ export class LLMDriver {
     async createChatCompletion(params: ChatCompletionParams & { stream: true }): Promise<AsyncGenerator<ChatCompletionChunk>>;
     async createChatCompletion(params: ChatCompletionParams & { stream?: false }): Promise<ChatCompletionResponse>;
     async createChatCompletion(params: ChatCompletionParams): Promise<ChatCompletionResponse | AsyncGenerator<ChatCompletionChunk>> {
-        const requestId = Date.now().toString(36);
+        const requestId = requestUUID();
         
         // ✅ 简洁调用
         this.log.debug('Chat request', {
@@ -170,7 +175,13 @@ export class LLMDriver {
         });
 
         const modelEffort = this.providerConfig.metadata?.modelReasoningEfforts?.[params.model || this.providerConfig.model || ''];
-        let finalParams: ChatCompletionParams = { ...params, reasoningEffort: params.reasoningEffort ?? modelEffort };
+        const definition = this.config.customProviderDefaults?.[this.providerConfig.provider] ?? LLM_PROVIDERS[this.providerConfig.provider];
+        const model = definition?.models.find(item => item.id === (params.model ?? this.providerConfig.model));
+        const protocol = this.providerConfig.protocol ?? model?.preferredProtocol ?? (definition && getProviderDefaultProtocol(definition));
+        const budget = this.providerConfig.metadata?.modelThinkingBudgets?.[params.model || this.providerConfig.model || '']
+            ?? this.providerConfig.metadata?.thinkingBudget;
+        let finalParams = resolveReasoningRequest(model, protocol, { ...params,
+            thinkingBudget: params.thinkingBudget ?? budget, reasoningEffort: params.reasoningEffort ?? modelEffort });
         const requestProvider = this.providerForModel(params.model);
 
         // ── 自动展开 attachments ──
@@ -244,7 +255,8 @@ export class LLMDriver {
             this.log.error('Chat failed', {
                 requestId,
                 code: llmError.code,
-                message: llmError.message,
+                statusCode: llmError.statusCode,
+                stage: 'response',
                 model: llmError.model || this.currentModel,
             });
 

@@ -12,6 +12,10 @@ export type ModelCategory = 'chat' | 'image' | 'video' | 'audio' | 'embedding';
 
 
 export interface LLMModel {
+    reasoning?: import('./reasoning').ReasoningCapabilities | false;
+    reasoningByProtocol?: Partial<Record<ApiProtocol, import('./reasoning').ReasoningCapabilities | false>>;
+    /** False when a refreshed catalog provides no explicit capability metadata. */
+    capabilitiesKnown?: boolean;
     operations?: Partial<Record<import('./media').MediaOperation, import('./media').MediaModelCapabilities>>;
     id: string;
     name: string;
@@ -106,6 +110,10 @@ export type LLMProviderImplementation =
  * 对外通过 `getProviders()` 返回无 apiKey 版本。
  */
 export interface LLMProvider {
+    /** Host-managed providers do not accept a browser API-key field. */
+    credentialMode?: 'api-key' | 'host';
+    /** Explicit text model used by the Provider connection test. */
+    connectionTestModel?: string;
     media?: Partial<Record<import('./media').MediaOperation, import('./media').MediaEndpoint>>;
     /** Provider 唯一标识（如 'anthropic'、'gemini'、'deepseek'） */
     id: string;
@@ -231,9 +239,10 @@ export interface LLMConnection {
     metadata?: {
         isSystemDefault?: boolean;
         thinkingBudget?: number;
-        reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh';
+        reasoningEffort?: string;
         /** Connection overrides keyed by model ID. */
-        modelReasoningEfforts?: Record<string, 'low' | 'medium' | 'high' | 'xhigh'>;
+        modelReasoningEfforts?: Record<string, string>;
+        modelThinkingBudgets?: Record<string, number>;
         mcpServers?: string[];
         caching?: boolean;
         headers?: Record<string, string>;
@@ -314,11 +323,22 @@ export interface ConnectionTestResult {
     message: string;
     latency?: number;
     model?: string;
+    operation?: 'chat' | import('./media').MediaOperation;
+    requestId?: string;
+    code?: string;
+    statusCode?: number;
+    remoteCode?: string;
+    stage?: 'validation' | 'transport' | 'response';
+    transportCode?: string;
+    assets?: Array<{ mimeType: string; data: Uint8Array }>;
 }
 
 
 /** Unsaved Provider configuration used by settings requests. */
 export interface ProviderConnectionTestParams {
+    /** Omitted means a text-only Provider test. Media verification is explicit. */
+    operation?: 'chat' | import('./media').MediaOperation;
+    request?: import('./media').MediaGenerationInput;
     provider: string;
     apiKey?: string;
     baseURL?: string;

@@ -161,7 +161,7 @@ export class LLMError extends Error {
         statusCode: number,
         body: any
     ): { code: LLMErrorCode; message: string; retryable: boolean; retryAfter?: number } {
-        const errorMessage = body?.error?.message || body?.message || `HTTP ${statusCode}`;
+        const errorMessage = body?.error?.message || body?.header?.message || body?.message || `HTTP ${statusCode}`;
         
         switch (statusCode) {
             case 400:
