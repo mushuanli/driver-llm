@@ -40,7 +40,8 @@ function decodeFrame(value: unknown): Uint8Array | undefined {
     const code = frame?.code ?? frame?.header?.code;
     if (!Number.isSafeInteger(code)) throw speechError('MEDIA_RESPONSE', 'Speech response status is missing');
     if (code !== 0 && code !== 20000000) throw Object.assign(speechError('MEDIA_REMOTE_ERROR', `Speech service rejected the request (code ${code})`), {remoteCode: String(code)});
-    if (frame?.data === undefined || frame.data === '') return;
+    // Successful completion frames may carry null instead of an audio chunk.
+    if (frame?.data === undefined || frame.data === null || frame.data === '') return;
     if (typeof frame?.data !== 'string' || frame.data.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(frame.data)) throw speechError('MEDIA_RESPONSE', 'Invalid speech audio base64');
     return Uint8Array.from(atob(frame.data), char => char.charCodeAt(0));
 }

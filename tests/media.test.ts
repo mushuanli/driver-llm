@@ -58,6 +58,21 @@ it('adapts native speech authentication, payload, split UTF-8/JSON frames and co
     expect((init.headers as Record<string, string>)['X-Api-Request-Id']).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
     expect(JSON.parse(String(init.body))).toEqual({req_params: {text: speech.input, speaker: 'demo', audio_params: {format: 'mp3', sample_rate: 24000}}});
 });
+it.each(['json-lines', 'sse'])('accepts native speech completion with null audio in %s responses', async framing => {
+    const frames = [{code: 0, data: btoa('audio')}, {code: 20000000, message: 'OK', data: null, usage: {text_words: 2}}];
+    const body = frames.map(frame => `${framing === 'sse' ? 'data: ' : ''}${JSON.stringify(frame)}\n`).join('\n');
+    const fetch = vi.fn(async () => new Response(body)), info = vi.fn(), error = vi.fn();
+    const result = await new LLMMediaClient({provider: nativeProvider(), apiKey: 'key', fetch, logger: {info, error, debug: vi.fn(), warn: vi.fn()}}).generate(speech);
+    expect(new TextDecoder().decode(result.assets[0].data)).toBe('audio');
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(info).toHaveBeenCalledWith('media.request.completed', expect.objectContaining({bytes: 5}));
+    expect(error).not.toHaveBeenCalled();
+});
+it.each([null, '*invalid*', 'YQ=', 123, {}])('rejects native speech without valid audio despite a successful completion: %j', async data => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({code: 0, data}) + '\n' + JSON.stringify({code: 20000000, data: null})));
+    await expect(new LLMMediaClient({provider: nativeProvider(), apiKey: 'key', fetch}).generate(speech)).rejects.toMatchObject({code: data === null ? 'MEDIA_EMPTY_AUDIO' : 'MEDIA_RESPONSE'});
+    expect(fetch).toHaveBeenCalledOnce();
+});
 it('rejects native business errors after audio without returning partial media or logging private content', async () => {
     const error = vi.fn(), logger = {debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error};
     const fetch = vi.fn(async () => new Response(JSON.stringify({code: 0, data: btoa('partial')}) + '\n' + JSON.stringify({code: 45000000, message: 'private text'}), {headers: {'X-Tt-Logid': 'safe-log-id'}}));
