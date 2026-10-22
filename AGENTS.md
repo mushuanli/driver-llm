@@ -20,4 +20,4 @@ Provider 扩展通过 createProviderRegistry().snapshot() 或 ProviderFactory �
 
 推理能力由模型 reasoning 与 reasoningByProtocol 声明；等级、API 值、关闭能力和预算按声明校验，不维护跨厂商固定枚举。Provider 连接测试只使用显式文本模型；媒体操作验证复用正式适配器。
 
-目录刷新按显式能力字段、模态和 supported_parameters 映射，缺失保持未知（capabilitiesKnown=false），禁止按模型名猜测或默认勾选视觉/推理/工具。目录路径优先 modelsPath，其次从声明的聊天路径派生 models，不按业务或厂商名称分支。
+目录刷新按显式能力字段、模态和 supported_parameters 映射，缺失保持未知（capabilitiesKnown=false），禁止按模型名猜测或默认勾选视觉/推理/工具。modelsPath:false 显式关闭在线目录，网络请求前返回 MODEL_CATALOG_UNSUPPORTED；否则目录路径优先 modelsPath，其次从声明的聊天路径派生 models，不按业务或厂商名称分支。

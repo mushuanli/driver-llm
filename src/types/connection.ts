@@ -122,8 +122,8 @@ export interface LLMProvider {
     /** Explicit protocol support; omitted for legacy inferred configurations. */
     supportedProtocols?: ApiProtocol[];
     defaultProtocol?: ApiProtocol;
-    /** Model catalog URL or path override, using the implementation's catalog format. */
-    modelsPath?: string;
+    /** Model catalog URL/path override; false explicitly disables remote discovery. */
+    modelsPath?: string | false;
     /** Gemini Generate endpoint path override. */
     geminiPath?: string;
     chatPath?: string;

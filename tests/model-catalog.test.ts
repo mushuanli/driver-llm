@@ -7,6 +7,15 @@ const base: LLMProvider = { id: 'custom', name: 'Custom', implementation: 'opena
 const page = (body: unknown) => ({ ok: true, json: async () => body });
 afterEach(() => vi.unstubAllGlobals());
 
+it('rejects providers without catalog discovery before transport and retains safe diagnostics', async () => {
+    const fetch = vi.fn(), logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const provider = { ...base, modelsPath: false as const, models: [{ id: 'preset', name: 'Preset' }] };
+    await expect(listProviderModels(provider, { fetch, logger })).rejects.toMatchObject({ code: 'MODEL_CATALOG_UNSUPPORTED' });
+    expect(fetch).not.toHaveBeenCalled(); expect(provider.models).toHaveLength(1);
+    expect(logger.error).toHaveBeenCalledWith('model.catalog.failed', expect.objectContaining({ code: 'MODEL_CATALOG_UNSUPPORTED', requestId: expect.any(String), durationMs: expect.any(Number) }));
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain('secret');
+});
+
 it('uses OpenAI auth, respects versioned bases and custom catalog paths', async () => {
     const fetchMock = vi.fn().mockResolvedValue(page({ data: [{ id: 'a' }, { id: 'a' }, {}] }));
     vi.stubGlobal('fetch', fetchMock);

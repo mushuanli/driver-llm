@@ -184,6 +184,8 @@ Legacy image endpoints explicitly opt into `responseFormat: 'b64_json'` and
 
 `LLMMediaClient` 统一提供 `image.generate` 和 `speech.synthesize`。Provider 的 `media` 选择 `openai-images`、`volcengine-images`、`openai-speech` 或 `doubao-speech`；模型的 `operations` 声明具体输入/输出模态、格式、音色与范围。
 
+不提供在线模型目录的服务声明 `modelsPath: false`，目录发现会在网络请求前返回 `MODEL_CATALOG_UNSUPPORTED`，保留已配置的模型。省略该字段沿用协议默认目录，字符串值指定目录地址；语音合成等原生媒体端点不应被当作 OpenAI `/v1/models` 服务。
+
 豆包原生语音端点示例：
 
 ```ts

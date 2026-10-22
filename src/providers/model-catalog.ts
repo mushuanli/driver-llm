@@ -75,6 +75,7 @@ export async function listProviderModels(provider: LLMProvider,
 }
 
 async function fetchProviderModels(provider: LLMProvider, options: Parameters<typeof listProviderModels>[1] = {}): Promise<LLMModel[]> {
+    if (provider.modelsPath === false) throw Object.assign(new Error('This provider does not expose a remote model catalog; use configured models'), {code: 'MODEL_CATALOG_UNSUPPORTED'});
     if (provider.id === 'chatgpt' || provider.implementation === 'chatgpt' || options.chatgpt) {
         if (!options.chatgpt) throw new ChatGPTError('auth_session_required', 401);
         return listChatGPTModels(options.chatgpt, options);
