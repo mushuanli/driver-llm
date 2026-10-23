@@ -315,15 +315,7 @@ export class AnthropicProvider extends BaseProvider {
                     ? `${systemMessage}\n\n${content}`
                     : content;
             } else if (msg.role === 'tool') {
-                // 工具结果
-                userMessages.push({
-                    role: 'user',
-                    content: [{
-                        type: 'tool_result',
-                        tool_use_id: msg.tool_call_id,
-                        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-                    }]
-                });
+                this.appendToolResult(userMessages, msg);
             } else if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
                 // Assistant message with tool_calls: convert to Anthropic content blocks
                 const content = this.convertContent(msg.content);
@@ -356,6 +348,19 @@ export class AnthropicProvider extends BaseProvider {
         }
 
         return { systemMessage, userMessages };
+    }
+
+    /** A parallel assistant tool batch requires all results in its next user turn. */
+    private appendToolResult(messages: any[], message: ChatMessage): void {
+        const result = { type: 'tool_result', tool_use_id: message.tool_call_id,
+            content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content) };
+        const previous = messages.at(-1);
+        if (previous?.role === 'user' && Array.isArray(previous.content)
+            && previous.content.every((part: { type?: string }) => part.type === 'tool_result')) {
+            previous.content.push(result);
+        } else {
+            messages.push({ role: 'user', content: [result] });
+        }
     }
 
     /**

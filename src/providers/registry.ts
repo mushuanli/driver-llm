@@ -1,4 +1,4 @@
-import { getPrimaryProtocol } from '../types';
+import { getPrimaryProtocol, resolveModelProtocol } from '../types';
 import type { LLMProviderConfig, LLMProvider, ApiProtocol, ProviderFactory, ProviderConstructor, LLMProviderInstance } from '../types';
 import { OpenAIProvider } from './openai';
 import { ResponsesProvider } from './responses';
@@ -73,8 +73,7 @@ function instantiateProvider(config: LLMProviderConfig, defaults: Record<string,
     lookup: (name: string) => ProviderConstructor | undefined): LLMProviderInstance {
     const definition = defaults?.[config.provider] ?? LLM_PROVIDERS[config.provider];
     if (config.provider !== 'codex' && !config.protocol && definition) {
-        const preferred = definition.models.find(model => model.id === config.model)?.preferredProtocol;
-        config = { ...config, protocol: preferred ?? definition.defaultProtocol };
+        config = { ...config, protocol: resolveModelProtocol(config, definition, config.model ?? '') };
     }
     const implementation = definition && implementations[definition.implementation];
     const chatgpt = config.provider === 'chatgpt' || definition?.implementation === 'chatgpt';

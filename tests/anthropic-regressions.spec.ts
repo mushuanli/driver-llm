@@ -20,6 +20,36 @@ async function collect(driver: LLMDriver) {
     return chunks;
 }
 describe('Anthropic protocol regressions', () => {
+    it('groups parallel tool results in the user turn immediately following every assistant tool batch', async () => {
+        const c = client();
+        const call = (id: string) => ({ id, type: 'function' as const, function: { name: 'Read', arguments: '{}' } });
+        const history = [
+            { role: 'user' as const, content: 'Inspect the source' },
+            { role: 'assistant' as const, content: '', tool_calls: [call('first'), call('second')] },
+            { role: 'tool' as const, tool_call_id: 'first', content: 'first result' },
+            { role: 'tool' as const, tool_call_id: 'second', content: 'second result' },
+            { role: 'assistant' as const, content: 'Read one more file', tool_calls: [call('third')] },
+            { role: 'tool' as const, tool_call_id: 'third', content: 'third result' },
+        ];
+        const original = structuredClone(history);
+        await c.provider.create({ messages: history });
+        expect(c.body().messages).toEqual([
+            { role: 'user', content: 'Inspect the source' },
+            { role: 'assistant', content: [
+                { type: 'tool_use', id: 'first', name: 'Read', input: {} },
+                { type: 'tool_use', id: 'second', name: 'Read', input: {} },
+            ] },
+            { role: 'user', content: [
+                { type: 'tool_result', tool_use_id: 'first', content: 'first result' },
+                { type: 'tool_result', tool_use_id: 'second', content: 'second result' },
+            ] },
+            { role: 'assistant', content: [
+                { type: 'text', text: 'Read one more file' }, { type: 'tool_use', id: 'third', name: 'Read', input: {} },
+            ] },
+            { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'third', content: 'third result' }] },
+        ]);
+        expect(history).toEqual(original);
+    });
     it('sends explicit disabled thinking without conflicting effort', async () => {
         const c = client();
         await c.provider.create({ messages, thinking: false, reasoningEffort: 'high' });

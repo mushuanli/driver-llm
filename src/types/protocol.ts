@@ -1,8 +1,16 @@
-import type { ApiProtocol, LLMProvider } from './connection';
+import type { ApiProtocol, ConnectionMeta, LLMProvider } from './connection';
 
 export const API_PROTOCOLS: readonly ApiProtocol[] = [
     'openai-chat', 'openai-responses', 'anthropic-messages', 'gemini-generate',
 ];
+
+/** Resolve declared protocol identity for the actual model without guessing unknown capabilities. */
+export function resolveModelProtocol(connection: Pick<ConnectionMeta, 'protocol'>,
+    provider: LLMProvider | undefined, modelId: string): ApiProtocol | undefined {
+    const selected = connection.protocol ?? provider?.models.find(model => model.id === modelId)?.preferredProtocol
+        ?? provider?.defaultProtocol;
+    return selected && API_PROTOCOLS.includes(selected) ? selected : undefined;
+}
 
 export function getPrimaryProtocol(provider: Pick<LLMProvider, 'implementation'>): ApiProtocol {
     if (provider.implementation === 'chatgpt') return 'openai-responses';
