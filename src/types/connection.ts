@@ -17,6 +17,8 @@ export interface LLMModel {
     /** False when a refreshed catalog provides no explicit capability metadata. */
     capabilitiesKnown?: boolean;
     operations?: Partial<Record<import('./media').MediaOperation, import('./media').MediaModelCapabilities>>;
+    /** Explicit catalog operation support; invocation still requires complete operations constraints. */
+    supportedOperations?: import('./media').MediaOperation[];
     id: string;
     name: string;
     icon?: string;

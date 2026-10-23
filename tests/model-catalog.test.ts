@@ -78,3 +78,40 @@ it('maps explicit capabilities and modalities while preserving negative and unkn
     expect(models[1].operations).toBeUndefined();
     expect(models[2]).toMatchObject({supportsVision: true, supportsTools: true});
 });
+
+ it('adapts Ark nested declarations without guessing operations or model names', async () => {
+    const fetch = vi.fn().mockResolvedValue(page({data: [
+        {id: 'opaque-image', modalities: {input_modalities: ['text', 'image'], output_modalities: ['image']}},
+        {id: 'opaque-video', modalities: {input_modalities: ['text', 'first_frame'], output_modalities: ['video']}},
+        {id: 'opaque-chat', modalities: {input_modalities: ['text'], output_modalities: ['text']},
+            features: {tools: {function_calling: false}, structured_outputs: {json_object: false, json_schema: false}},
+            token_limits: {context_window: 32768, max_output_token_length: 4096}},
+        {id: 'seedream-unknown'},
+        {id: 'structured', features: {structured_outputs: {json_object: true, json_schema: false}}},
+        {id: 'partial', features: {structured_outputs: {json_object: false}}, token_limits: {context_window: -1}},
+        {id: 'embedding', task_type: ['TextEmbedding'], modalities: {input_modalities: ['text']}},
+    ]}));
+    const models = await listProviderModels(base, {fetch});
+    expect(models[0]).toMatchObject({category: 'image', supportsVision: true, capabilitiesKnown: true});
+    expect(models[1]).toMatchObject({category: 'video', supportsVision: true});
+    expect(models[2]).toMatchObject({category: 'chat', supportsTools: false, supportsStructuredOutput: false,
+        contextWindow: 32768, maxOutput: 4096});
+    expect(models[2].supportsThinking).toBeUndefined();
+    expect(models[3]).toEqual({id: 'seedream-unknown', name: 'seedream-unknown', capabilitiesKnown: false});
+    expect(models[4].supportsStructuredOutput).toBe(true);
+    expect(models[5].supportsStructuredOutput).toBeUndefined();
+    expect(models[5].contextWindow).toBeUndefined();
+    expect(models[6].category).toBe('embedding');
+    expect(models.every(model => model.operations === undefined)).toBe(true);
+});
+
+it('preserves explicit Ark generation task types without inventing output formats', async () => {
+    const fetch = vi.fn().mockResolvedValue(page({data: [
+        {id: 'opaque-generator', task_type: ['TextToImage', 'ImageToImage']},
+        {id: 'seedream-name-only', features: {tools: {function_calling: false}}},
+    ]}));
+    const models = await listProviderModels(base, {fetch});
+    expect(models[0]).toMatchObject({category: 'image', supportedOperations: ['image.generate'], capabilitiesKnown: true});
+    expect(models[0].operations).toBeUndefined();
+    expect(models[1].category).toBeUndefined(); expect(models[1].supportedOperations).toBeUndefined();
+});

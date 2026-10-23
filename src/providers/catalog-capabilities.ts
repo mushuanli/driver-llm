@@ -1,6 +1,7 @@
 import type { LLMModel } from '../types';
 import { isReasoningCapabilities } from '../types/reasoning';
 import { isMediaCatalog } from '../types/media-capabilities';
+import { arkCatalogDeclarations } from './catalog-ark';
 
 const fields = ['supportsVision', 'supportsThinking', 'supportsTools', 'supportsAudio', 'supportsVideo', 'supportsStructuredOutput'] as const;
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -8,6 +9,7 @@ const strings = (value: unknown): string[] | undefined => Array.isArray(value) &
 
 /** Preserve affirmative, negative and unknown declarations without guessing from model names. */
 export function catalogCapabilities(row: Record<string, unknown>): Partial<LLMModel> {
+    row = {...Object.fromEntries(Object.entries(arkCatalogDeclarations(row)).filter(([, value]) => value !== undefined)), ...row};
     const caps = strings(row.capabilities) ? Object.fromEntries(strings(row.capabilities)!.map(key => [key, true])) : record(row.capabilities);
     const architecture = record(row.architecture), parameters = strings(row.supported_parameters);
     const input = strings(row.input_modalities ?? architecture.input_modalities ?? caps.input_modalities), output = strings(row.output_modalities ?? architecture.output_modalities ?? caps.output_modalities);
@@ -18,6 +20,8 @@ export function catalogCapabilities(row: Record<string, unknown>): Partial<LLMMo
     if (['chat', 'image', 'audio', 'video', 'embedding'].includes(String(row.category))) result.category = row.category as LLMModel['category'];
     if (!result.category && output) result.category = output.includes('image') ? 'image' : output.includes('audio') ? 'audio' : output.includes('video') ? 'video' : output.includes('text') ? 'chat' : undefined;
     if (row.operations && isMediaCatalog(undefined, row.operations)) result.operations = row.operations as LLMModel['operations'];
+    if (Array.isArray(row.supportedOperations) && row.supportedOperations.every(operation => operation === 'image.generate' || operation === 'speech.synthesize'))
+        result.supportedOperations = row.supportedOperations as LLMModel['supportedOperations'];
     if (row.reasoning !== undefined && isReasoningCapabilities(row.reasoning)) result.reasoning = row.reasoning;
     const effort = record(row.effort), levels = strings(effort.supported_levels);
     if (levels?.length) {

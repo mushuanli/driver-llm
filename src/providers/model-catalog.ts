@@ -63,6 +63,9 @@ export async function listProviderModels(provider: LLMProvider,
     try {
         const models = await fetchProviderModels(provider, {...options, requestId});
         options.logger?.info('model.catalog.completed', {requestId, providerId: provider.id, count: models.length,
+            imageModels: models.filter(model => model.category === 'image').length,
+            videoModels: models.filter(model => model.category === 'video').length,
+            mediaOperations: models.filter(model => model.operations && Object.keys(model.operations).length).length,
             unknownCapabilities: models.filter(model => model.capabilitiesKnown === false).length, durationMs: Math.round(performance.now() - started)});
         return models;
     } catch (error) {
